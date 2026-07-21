@@ -1,0 +1,1018 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum UserRole {
+  admin
+  station_manager
+  station_staff
+  driver
+}
+
+enum BusinessLicenseStatus {
+  PENDING
+  ACTIVE
+  REJECTED
+  EXPIRED
+}
+
+enum UserStatus {
+  ACTIVE
+  INACTIVE
+  SUSPENDED
+  BLOCKED
+}
+
+enum Gender {
+  MALE
+  FEMALE
+  OTHER
+}
+
+enum FuelStatus {
+  ACTIVE
+  INACTIVE
+}
+
+enum VehicleTypeStatus {
+  ACTIVE
+  INACTIVE
+}
+
+enum StationStatus {
+  ACTIVE
+  INACTIVE
+  MAINTENANCE
+  CONGESTED
+  RISK
+}
+
+enum TankStatus {
+  ACTIVE
+  INACTIVE
+  MAINTENANCE
+  FULL
+  EMPTY
+}
+
+enum DispenserStatus {
+  ACTIVE
+  INACTIVE
+  MAINTENANCE
+}
+
+enum NozzleStatus {
+  ACTIVE
+  BUSY
+  OFFLINE
+}
+
+enum CameraType {
+  rtsp
+  http
+  webrtc
+  mobile_mock
+}
+
+enum CameraStatus {
+  online
+  offline
+  testing
+}
+
+enum CongestionLevel {
+  low
+  medium
+  high
+  critical
+}
+
+enum PriceControlMode {
+  FIXED // city defines price, no override allowed
+  OVERRIDE // stations can override price
+}
+
+enum FuelRequestStatus {
+  PENDING
+  VERIFIED   // 👈 operator has taken it from queue (LOCKED)
+  APPROVED
+  ASSIGNED
+  DISPENSING
+  COMPLETED
+  REJECTED
+  CANCELLED
+}
+
+enum RejectionPriority {
+  LOW
+  MEDIUM
+  HIGH
+}
+
+enum OrgType {
+  GOVERNMENT
+  COMPANY
+  FACTORY
+  NGO
+}
+
+enum OrgStatus {
+  ACTIVE
+  SUSPENDED
+  PENDING_APPROVAL
+}
+
+enum TankAuditAction {
+  REFILL
+  ADJUSTMENT
+}
+
+enum AdjustmentType {
+  LOSS
+  LEAK
+  CALIBRATION
+  MANUAL_FIX
+  CORRECTION
+}
+
+enum BusinessLicenseRequestType {
+  NEW
+  RENEW
+}
+
+
+enum OtpType {
+  LOGIN
+  REGISTRATION
+  VERIFICATION
+  RESET_PASSWORD
+  CHANGE_PHONE
+}
+
+
+
+
+
+
+
+
+model User {
+  id            String  @id @default(uuid())
+  full_name     String
+  phone         String  @unique
+  email         String? @unique
+  profile_image String?
+
+  password     String?
+  role         UserRole
+  // firebase_uid String? @unique
+  status       UserStatus @default(ACTIVE)
+  gender       Gender @default(MALE)
+
+  driverProfile  DriverProfile?
+  managedStation Station? @relation("StationManager")
+
+
+  // Phone verification
+  phoneVerifiedAt DateTime?
+
+  stationId String?
+  station   Station? @relation("StationStaff", fields: [stationId], references: [id])
+
+  vehicles     Vehicle[]
+
+  // 👇 FIXED RELATIONS
+  fuelRequests FuelRequest[] @relation("FuelRequestUser")
+  assignedFuelRequests FuelRequest[] @relation("FuelRequestAssignedTo")
+
+  transactions Transaction[]
+  risks        UserRisk[]
+
+  businessLicense BusinessLicense?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+    otpVerifications OtpVerification[]
+
+
+  notifications Notification[]
+}
+
+
+model DriverProfile {
+  id String @id @default(uuid())
+
+  userId String @unique
+  user   User   @relation(fields: [userId], references: [id])
+
+  age           Int
+  nationalId    String    @unique
+  licenseNumber String    @unique
+  licenseExpiry DateTime?
+  isVerified    Boolean   @default(false)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @default(now()) @updatedAt
+}
+
+
+model OtpVerification {
+  id String @id @default(uuid())
+
+  // Nullable because registration may occur before a User exists
+  userId String?
+  user   User? @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  phone String
+
+  // Store a hashed OTP, never the plain code
+  codeHash String
+
+  type OtpType
+
+  expiresAt DateTime
+
+  verifiedAt DateTime?
+
+  failedAttempts Int @default(0)
+
+  ipAddress String?
+
+  userAgent String?
+
+  sentAt DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([phone, type, verifiedAt, expiresAt])
+  @@index([userId])
+}
+
+model FuelType {
+  id    String @id @default(uuid())
+  name  String @unique
+  price Float
+
+  status FuelStatus @default(ACTIVE)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  vehicleTypes     VehicleType[]
+  vehicles         Vehicle[]
+  fuelRequests     FuelRequest[]
+  transactions     Transaction[]
+  stations         StationFuelType[]
+  stationFuelPrice StationFuelPrice[]
+}
+
+// model VehicleType {
+//   id   String @id @default(uuid())
+//   name String
+
+//   // ================= LIMIT RULES =================
+//   maxLitersPerHour         Float
+//   minRefillIntervalMinutes Int?
+//   maxRefillsPerDay         Int?
+//   maxDailyLiters           Float?
+
+//   description String?
+
+//   status VehicleTypeStatus @default(ACTIVE)
+
+//   createdAt DateTime @default(now())
+//   updatedAt DateTime @updatedAt
+
+//   allowedFuelTypes FuelType[]
+//   vehicles         Vehicle[]
+// }
+
+model VehicleType {
+  id   String @id @default(uuid())
+
+  // ================= OFFICIAL CLASSIFICATION =================
+  code Int
+  codeLabel String? // optional human-readable alias (e.g. "1 - Sedan")
+
+  name String
+
+  // optional grouping for future scaling (public/private/heavy system separation)
+  category String?
+
+  // ================= VERIFICATION RULES =================
+  requiresBusinessLicense Boolean @default(false)
+  requiresDriverLicense   Boolean @default(true)
+
+  // ================= FUEL LIMIT RULES =================
+  maxLitersPerHour         Float
+  minRefillIntervalMinutes Int?
+  maxRefillsPerDay         Int?
+  maxDailyLiters           Float?
+
+  // ================= EXTRA INFO =================
+  description String?
+
+  status VehicleTypeStatus @default(ACTIVE)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // relations
+  allowedFuelTypes FuelType[]
+  vehicles         Vehicle[]
+
+  // ================= SAFETY CONSTRAINT =================
+  @@index([code])
+  @@index([category])
+}
+
+model Vehicle {
+  id            String @id @default(uuid())
+  userId        String
+  vehicleTypeId String
+
+  regionCode String // e.g. "AA", "OR"
+
+
+  plateNumber String @unique
+  vin         String @unique
+
+  fuelCapacity Float
+
+  // ================= STATUS SYSTEM =================
+  isVerified Boolean @default(false)
+
+  isActive  Boolean   @default(true) // 🚗 usable or disabled
+  isDeleted Boolean   @default(false) // 🗑 soft delete flag
+  deletedAt DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // ================= RELATIONS =================
+  user        User        @relation(fields: [userId], references: [id])
+  vehicleType VehicleType @relation(fields: [vehicleTypeId], references: [id])
+
+  fuelTypeId String
+  fuelType   FuelType @relation(fields: [fuelTypeId], references: [id])
+
+  fuelRequests FuelRequest[]
+  transactions Transaction[]
+}
+
+model BusinessLicense {
+  id String @id @default(uuid())
+
+  // ================= OWNER =================
+  userId String @unique
+  user   User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  // ================= LICENSE DATA =================
+  licenseNumber String @unique
+  documentUrl   String?
+  expiryDate    DateTime?
+
+  // ================= REQUEST TYPE (IMPORTANT ADDITION) =================
+  requestType BusinessLicenseRequestType
+
+  // ================= STATUS =================
+  status BusinessLicenseStatus @default(PENDING)
+  // ================= META =================
+  issuedBy String?
+  issuedAt DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+
+model Station {
+  id   String @id @default(uuid())
+  name String
+
+  lat Float
+  lng Float
+
+  address String?
+  city    String?
+  region  String?
+
+  imageUrl String?
+
+  status StationStatus @default(ACTIVE)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  managerId String? @unique
+  manager   User?   @relation("StationManager", fields: [managerId], references: [id])
+
+  staff User[] @relation("StationStaff")
+
+  settings  StationSetting?
+  traffic   StationTraffic?
+  fuelTypes StationFuelType[]
+
+  tanks      Tank[]
+  dispensers Dispenser[]
+
+  fuelRequests      FuelRequest[]
+  transactions      Transaction[]
+  cameras           Camera[]
+  stationFuelPrices StationFuelPrice[]
+}
+
+model StationFuelType {
+  id String @id @default(uuid())
+
+  stationId String
+  station   Station @relation(fields: [stationId], references: [id])
+
+  fuelTypeId String
+  fuelType   FuelType @relation(fields: [fuelTypeId], references: [id])
+
+  /// MAX STORAGE CAPACITY (design-safe naming)
+  maxCapacity Float
+
+
+  /// ⛽ REQUEST RULES (NEW)
+  minRequestLiters Float @default(1)
+  maxRequestLiters Float @default(100)
+
+  isActive Boolean @default(true)
+
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  deletedAt DateTime?
+
+  tanks Tank[]
+
+  @@unique([stationId, fuelTypeId]) // 🔥 CRITICAL FIX
+  @@index([stationId])
+  @@index([fuelTypeId])
+}
+
+model StationFuelPrice {
+  id String @id @default(uuid())
+
+  stationId String
+  station   Station @relation(fields: [stationId], references: [id])
+
+  fuelTypeId String
+  fuelType   FuelType @relation(fields: [fuelTypeId], references: [id])
+
+  pricePerLiter Float
+
+  isOverride Boolean @default(true)
+
+  effectiveFrom DateTime  @default(now())
+  effectiveTo   DateTime?
+
+  createdAt DateTime @default(now())
+
+  @@unique([stationId, fuelTypeId])
+  @@index([stationId, fuelTypeId])
+}
+
+model Tank {
+  id String @id @default(uuid())
+
+  stationId String
+  station   Station @relation(fields: [stationId], references: [id])
+
+  stationFuelTypeId String
+  stationFuelType   StationFuelType @relation(fields: [stationFuelTypeId], references: [id])
+
+    // 👇 Add this
+  auditLogs TankAuditLog[]
+
+  name         String
+  capacity     Float
+  currentLevel Float  @default(0)
+
+  status    TankStatus @default(ACTIVE)
+  createdAt DateTime   @default(now())
+  updatedAt DateTime   @default(now()) @updatedAt
+}
+
+model TankAuditLog {
+  id String @id @default(uuid())
+
+  tankId String
+  tank Tank @relation(fields: [tankId], references: [id])
+
+  action TankAuditAction
+
+  litersChange Float // + or -
+
+  previousLevel Float
+  newLevel Float
+
+  reason String?
+
+  adjustmentType AdjustmentType?
+
+  referenceId String?
+
+  performedBy String
+  performedRole String
+
+  createdAt DateTime @default(now())
+
+  @@index([tankId])
+  @@index([createdAt])
+}
+
+model Dispenser {
+  id        String @id @default(uuid())
+  stationId String
+
+  number Int
+  status String // active | inactive | maintenance
+
+  station Station  @relation(fields: [stationId], references: [id])
+  nozzles Nozzle[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @default(now()) @updatedAt
+
+  @@unique([stationId, number]) // 🔥 prevents duplicates at DB level
+}
+
+model Nozzle {
+  id          String @id @default(uuid())
+  dispenserId String
+
+  number   Int
+  fuelType String // Petrol | Diesel
+  status   String // active | busy | offline
+
+  dispenser    Dispenser     @relation(fields: [dispenserId], references: [id])
+  fuelRequests FuelRequest[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @default(now()) @updatedAt
+
+  @@unique([dispenserId, number]) // 🔥 prevents duplicate nozzle numbers
+}
+
+model StationSetting {
+  id        String @id @default(uuid())
+  stationId String @unique
+
+  queueZone Json // {x1, y1, x2, y2}
+
+  thresholdLow      Int
+  thresholdMedium   Int
+  thresholdHigh     Int
+  thresholdCritical Int
+
+  maxQueueCapacity Int
+
+  // ✅ NEW
+  minFuelRequestLiters Int @default(1)
+
+  station Station @relation(fields: [stationId], references: [id])
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model StationTraffic {
+  id        String @id @default(uuid())
+  stationId String @unique
+
+  queueCount      Int
+  congestionLevel String // low | medium | high | critical
+
+  /// ✅ AI outputs
+  waitingTimeMin  Float // predicted waiting time (minutes)
+  confidenceScore Float? // optional: AI confidence (0–1)
+
+  updatedBy String // ai | manual
+  updatedAt DateTime @default(now()) @updatedAt
+
+  station   Station  @relation(fields: [stationId], references: [id])
+  createdAt DateTime @default(now())
+}
+
+model FuelRequest {
+  id String @id @default(uuid())
+
+  userId String
+  user   User @relation("FuelRequestUser", fields: [userId], references: [id])
+
+  assignedToId String?
+  assignedTo   User? @relation("FuelRequestAssignedTo", fields: [assignedToId], references: [id])
+
+  vehicleId String
+  vehicle   Vehicle @relation(fields: [vehicleId], references: [id])
+
+  stationId String
+  station   Station @relation(fields: [stationId], references: [id])
+
+  fuelTypeId String
+  fuelType   FuelType @relation(fields: [fuelTypeId], references: [id])
+
+  requestedLiters Float
+  approvedLiters  Float?
+  dispensedLiters Float?
+
+  status FuelRequestStatus @default(PENDING)
+
+  nozzleId String?
+  nozzle   Nozzle? @relation(fields: [nozzleId], references: [id])
+
+  approvedAt DateTime?
+  completedAt DateTime?
+  verifiedAt DateTime?
+
+
+  cancelledAt     DateTime?   // ✅ ADD THIS
+  cancelledBy     String?     // (optional but recommended)
+
+  rejectionReasonId String?
+  rejectionReason   RejectionReason? @relation(fields: [rejectionReasonId], references: [id])
+
+  rejectionNote String?
+
+  transaction Transaction?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model Transaction {
+  id String @id @default(uuid())
+
+  fuelRequestId String @unique
+  userId        String
+  vehicleId     String
+  stationId     String
+
+  fuelTypeId String
+  fuelType   FuelType @relation(fields: [fuelTypeId], references: [id])
+
+  litersGiven   Float
+  pricePerLiter Float
+  totalCost     Float
+
+  paymentStatus String // paid | unpaid
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @default(now()) @updatedAt
+
+  fuelRequest FuelRequest @relation(fields: [fuelRequestId], references: [id])
+  user        User        @relation(fields: [userId], references: [id])
+  vehicle     Vehicle     @relation(fields: [vehicleId], references: [id])
+  station     Station     @relation(fields: [stationId], references: [id])
+}
+
+model Camera {
+  id String @id @default(uuid())
+
+  stationId String
+  station   Station @relation(fields: [stationId], references: [id])
+
+  name String
+
+  // ================= STREAM =================
+
+  streamUrl String
+  type CameraType
+
+  // ================= AUTH =================
+
+  username String?
+
+  /// Store encrypted password, not plain text
+  passwordEncrypted String?
+
+  // ================= NETWORK =================
+
+  ipAddress String?
+  port      Int? @default(554)
+
+  location String?
+
+  latitude  Float?
+  longitude Float?
+
+  // ================= STATUS =================
+
+  status CameraStatus @default(offline)
+
+  lastSeenAt    DateTime?
+  lastCheckedAt DateTime?
+
+  // ================= STREAM CONFIG =================
+
+  resolution String?
+  fps        Int?
+  codec      String?
+
+  // ================= AI =================
+
+  aiEnabled Boolean @default(false)
+
+  /// Queue detection region
+  queueZone Json?
+
+  /// Detection thresholds
+  thresholds Json?
+
+  // ================= CONTROL =================
+
+  isActive Boolean @default(true)
+
+  // ================= EXTRA =================
+
+  metadata Json?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+
+model UserRisk {
+  id String @id @default(uuid())
+
+  userId String
+  user   User   @relation(fields: [userId], references: [id])
+
+  level  String // low | medium | high
+  status String // active | flagged | blocked
+
+  reason     String
+  detectedBy String // system | admin | station_manager
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @default(now()) @updatedAt
+}
+
+model VehicleDailyUsage {
+  id String @id @default(uuid())
+
+  vehicleId String
+  // vehicle    Vehicle  @relation(fields: [vehicleId], references: [id])
+
+  date DateTime // normalized to day (00:00)
+
+  totalLiters Float @default(0)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @default(now()) @updatedAt
+
+  @@unique([vehicleId, date])
+}
+
+model RejectionReason {
+  id String @id @default(uuid())
+
+  code  String @unique // MACHINE READABLE (NOT_AUTHORIZED)
+  label String // UI label (Vehicle not authorized)
+
+  priority RejectionPriority
+
+  isActive Boolean @default(true)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  fuelRequests FuelRequest[]
+}
+
+model SystemSettings {
+  id String @id @default("global")
+
+  // ==============================
+  // 🚦 TRAFFIC GLOBAL LIMITS
+  // (MAX allowed per station)
+  // ==============================
+  maxTrafficLow      Int @default(20)
+  maxTrafficMedium   Int @default(50)
+  maxTrafficHigh     Int @default(80)
+  maxTrafficCritical Int @default(100)
+
+  // ==============================
+  // 🤖 AI CONTROL
+  // ==============================
+  aiEnabled        Boolean @default(true)
+  aiMinConfidence  Float   @default(0.6)
+  aiRefreshSeconds Int     @default(5)
+
+  // ==============================
+  // 🚨 OPERATIONAL SAFETY RULES
+  // ==============================
+  autoRiskDetection      Boolean @default(true)
+  maxQueueCapacityGlobal Int     @default(100)
+  maxRequestDistanceKm   Int     @default(10)
+
+  // ==============================
+  // 📹 INFRASTRUCTURE CONTROL
+  // ==============================
+  maxActiveCamerasPerStation Int @default(3)
+
+  // ==============================
+  // ⚙️ SYSTEM CONTROL
+  // ==============================
+  systemActive Boolean @default(true)
+
+  priceControlMode PriceControlMode @default(FIXED)
+
+  // ==============================
+  // 🕒 AUDIT
+  // ==============================
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model Notification {
+  id        String   @id @default(uuid())
+
+  userId    String
+  user      User     @relation(fields: [userId], references: [id])
+
+  title     String
+  message   String
+
+  type      String // fuel_request | status_update | system | alert
+
+  isRead    Boolean  @default(false)
+
+  metadata  Json? // requestId, stationId, etc
+
+  createdAt DateTime @default(now())
+}
+
+// orginization controlling
+model Organization {
+  id String @id @default(uuid())
+
+  // =========================
+  // BASIC IDENTITY
+  // =========================
+  name String
+  type OrgType
+
+  registrationNumber String? @unique
+
+  // =========================
+  // CONTACT INFO
+  // =========================
+  contactPerson String?
+  phone         String?
+  email         String?
+  address       String?
+
+  // =========================
+  // STATUS CONTROL
+  // =========================
+  status OrgStatus @default(ACTIVE)
+
+  // =========================
+  // BULK FUEL CONTROL (IMPORTANT)
+  // =========================
+  creditLimit      Float @default(0)
+  availableCredit   Float @default(0)
+
+  monthlyQuotaLiters Float?
+  dailyQuotaLiters   Float?
+
+  maxTransactionLiters Float @default(500)
+
+  allowBulkFuel Boolean @default(true)
+
+  // =========================
+  // AUTH CONTROL (OPTIONAL BUT RECOMMENDED)
+  // =========================
+  apiKey String? @unique
+
+  // =========================
+  // AUDIT
+  // =========================
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model OrgVehicle {
+  id String @id @default(uuid())
+
+  organizationId String
+  plateNumber String
+
+  vehicleType String? // Truck, Bus, Car
+  isActive Boolean @default(true)
+
+  createdAt DateTime @default(now())
+}
+
+
+
+
+
+// model Pump {
+//   id        String  @id @default(uuid())
+//   stationId String
+
+//   number    Int     // Pump 1, 2, 3
+//   status    String  // active | inactive | maintenance
+
+//   station   Station @relation(fields: [stationId], references: [id])
+//   // 👇 ADD THIS
+//   fuelRequests FuelRequest[]
+
+//   createdAt DateTime @default(now())
+// }
+
+// model Dispenser {
+//   id        String @id @default(uuid())
+//   stationId String
+
+//   number    Int
+//   status    String // active | inactive | maintenance
+
+//   // station   Station @relation(fields: [stationId], references: [id])
+//   nozzles   Nozzle[]
+// }
+
+// model Nozzle {
+//   id          String @id @default(uuid())
+//   dispenserId String
+
+//   number      Int
+//   fuelType    String // Petrol | Diesel
+
+//   status      String // active | busy | offline
+
+//   dispenser   Dispenser @relation(fields: [dispenserId], references: [id])
+// }
+
+// model FuelRequest {
+//   id String @id @default(uuid())
+
+//   userId    String
+//   vehicleId String
+//   stationId String
+
+//   requestedLiters Float
+//   approvedLiters  Float?
+//   status          String // pending | approved | rejected | completed
+
+//   createdAt DateTime @default(now())
+//   updatedAt DateTime @updatedAt
+//   pumpId String?   // 👈 ADD THIS
+//   pump   Pump?     @relation(fields: [pumpId], references: [id])
+
+//   user    User    @relation(fields: [userId], references: [id])
+//   vehicle Vehicle @relation(fields: [vehicleId], references: [id])
+//   station Station @relation(fields: [stationId], references: [id])
+
+//   transaction Transaction?
+// }
+
+// model FuelRequest {
+//   id String @id @default(uuid())
+
+//   userId    String
+//   vehicleId String
+//   stationId String
+
+//   requestedLiters Float
+//   approvedLiters  Float?
+
+//   status String // pending | approved | rejected | completed
+
+//   createdAt DateTime @default(now())
+//   updatedAt DateTime @updatedAt
+
+//   user    User    @relation(fields: [userId], references: [id])
+//   vehicle Vehicle @relation(fields: [vehicleId], references: [id])
+//   station Station @relation(fields: [stationId], references: [id])
+// }
+
+// model Camera {
+//   id String @id @default(uuid())
+
+//   stationId String
+//   station   Station @relation(fields: [stationId], references: [id])
+
+//   name      String
+//   streamUrl String // RTSP / HTTP / WebRTC endpoint
+//   type      String // rtsp | http | webrtc | mobile_mock
+
+//   location String? // "Main Gate", "Pump Area"
+
+//   status String @default("offline") // online | offline | testing
+
+//   isActive Boolean @default(true)
+
+//   createdAt DateTime @default(now())
+//   updatedAt DateTime @default(now()) @updatedAt
+// }

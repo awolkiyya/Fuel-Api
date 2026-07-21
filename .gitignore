@@ -1,0 +1,41 @@
+# ======================
+# Node
+# ======================
+node_modules/
+
+# Build output
+dist/
+
+
+# ======================
+# Environment
+# ======================
+.env
+.env.*
+!.env.example
+
+
+# ======================
+# Firebase secrets
+# ======================
+src/config/firebase-service-account.json
+dist/config/firebase-service-account.json
+firebase-service-account.json
+
+
+# ======================
+# Uploads
+# ======================
+uploads/
+
+
+# ======================
+# OS
+# ======================
+.DS_Store
+
+
+# ======================
+# Logs
+# ======================
+*.log
