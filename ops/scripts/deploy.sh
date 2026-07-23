@@ -15,15 +15,23 @@ cd "$APP_DIR"
 
 
 
-echo "📥 Pulling latest code..."
+echo "📥 Syncing latest code..."
 
-git pull origin main
+git fetch origin main
+
+git reset --hard origin/main
+
+
+
+echo "🔐 Fixing script permissions..."
+
+chmod +x ops/scripts/*.sh
 
 
 
 echo "🐳 Building and starting containers..."
 
-docker compose up -d --build
+docker compose --env-file .env.production up -d --build
 
 
 
@@ -36,6 +44,15 @@ sleep 10
 echo "🔍 Checking container status..."
 
 docker compose ps
+
+
+
+echo "🏥 Checking API health..."
+
+curl -f http://localhost/health || {
+    echo "❌ API health check failed"
+    exit 1
+}
 
 
 
