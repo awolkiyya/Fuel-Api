@@ -7,6 +7,7 @@ on:
       - main
 
 
+
 jobs:
 
   deploy:
@@ -30,7 +31,6 @@ jobs:
           key: ${{ secrets.FUEL_SSH_PRIVATE_KEY }}
 
 
-
           script: |
 
             set -e
@@ -40,13 +40,35 @@ jobs:
 
 
 
-            cd /home/oiadmin/apps/Fuel-Api
+            APP_DIR="/home/oiadmin/apps/Fuel-Api"
 
 
 
-            echo "📥 Pulling latest code..."
+            if [ ! -d "$APP_DIR" ]; then
 
-            git pull origin main
+              echo "❌ Application directory not found: $APP_DIR"
+
+              exit 1
+
+            fi
+
+
+
+            cd "$APP_DIR"
+
+
+
+            echo "📥 Syncing latest code..."
+
+            git fetch origin main
+
+            git reset --hard origin/main
+
+
+
+            echo "🔐 Setting script permissions..."
+
+            chmod +x ops/scripts/*.sh
 
 
 
