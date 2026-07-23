@@ -892,9 +892,9 @@ export const completeDispensingFuelRequestService = async ({
     // Create Transaction Snapshot
     // ==========================================
     await tx.transaction.create({
-
+      
       data: {
-        type: "NORMAL",
+        type: "NORMAL", // this is when the requester is driver
 
         fuelRequestId: fuelRequest.id,
 
