@@ -1,0 +1,65 @@
+name: Deploy Fuel API
+
+
+on:
+  push:
+    branches:
+      - main
+
+
+jobs:
+
+  deploy:
+
+    runs-on: ubuntu-latest
+
+
+    steps:
+
+      - name: Deploy Fuel API via SSH
+
+        uses: appleboy/ssh-action@v1.0.3
+
+
+        with:
+
+          host: ${{ secrets.FUEL_SSH_HOST }}
+
+          username: ${{ secrets.FUEL_SSH_USER }}
+
+          key: ${{ secrets.FUEL_SSH_PRIVATE_KEY }}
+
+
+
+          script: |
+
+            set -e
+
+
+            echo "🚀 Starting Fuel API Deployment..."
+
+
+
+            cd /home/fueladmin/apps/fuel-api
+
+
+
+            echo "📥 Pulling latest code..."
+
+            git pull origin main
+
+
+
+            echo "🐳 Running deployment script..."
+
+            ./ops/scripts/deploy.sh
+
+
+
+            echo "🏥 Running health check..."
+
+            ./ops/scripts/health-check.sh
+
+
+
+            echo "✅ Fuel API Deployment Completed Successfully"

@@ -145,25 +145,15 @@ export const login = async (
 
 
 
-  }catch(error:any){
+  }catch (error: any) {
+    console.error("LOGIN ERROR:", error);
 
-
-    return sendError(res,{
-
-      statusCode:401,
-
-      message:
-        error.message ||
-        "Invalid credentials",
-
-
-      code:
-        "LOGIN_FAILED",
-
+    return sendError(res, {
+        statusCode: error.statusCode ?? 401,
+        message: error.message ?? "Invalid credentials",
+        code: "LOGIN_FAILED",
     });
-
-
-  }
+}
 
 };
 

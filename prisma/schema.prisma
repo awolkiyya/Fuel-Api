@@ -155,6 +155,37 @@ enum OtpType {
 }
 
 
+enum FuelTransactionType {
+
+  NORMAL
+
+  ORGANIZATION
+
+}
+
+enum PaymentStatus {
+
+  PAID
+
+  UNPAID
+
+  PARTIAL
+
+}
+
+
+enum QuotaPeriodType {
+  DAILY
+  MONTHLY
+  YEARLY
+}
+
+
+enum QuotaStatus {
+  ACTIVE
+  EXPIRED
+  CANCELLED
+}
 
 
 
@@ -271,6 +302,8 @@ model FuelType {
   transactions     Transaction[]
   stations         StationFuelType[]
   stationFuelPrice StationFuelPrice[]
+  fuelQuotas FuelQuota[]
+
 }
 
 // model VehicleType {
@@ -649,30 +682,119 @@ model FuelRequest {
 }
 
 model Transaction {
+
   id String @id @default(uuid())
 
-  fuelRequestId String @unique
-  userId        String
-  vehicleId     String
-  stationId     String
+  // =========================
+  // TRANSACTION TYPE
+  // =========================
+
+  type FuelTransactionType
+
+
+  // =========================
+  // REQUEST
+  // =========================
+
+  fuelRequestId String? @unique
+
+  fuelRequest FuelRequest? @relation(fields: [fuelRequestId], references: [id])
+
+
+  // =========================
+  // USER / OPERATOR
+  // =========================
+
+  userId String?
+
+  user User? @relation(fields: [userId], references: [id])
+
+
+  // =========================
+  // ORGANIZATION FUELING
+  // =========================
+
+  organizationId String?
+
+  organization Organization? @relation(fields: [organizationId], references: [id])
+
+
+  // =========================
+  // VEHICLE FUELING
+  // =========================
+
+  vehicleId String?
+
+  vehicle Vehicle? @relation(fields: [vehicleId], references: [id])
+
+
+  // =========================
+  // STATION
+  // =========================
+
+  stationId String
+
+  station Station @relation(fields: [stationId], references: [id])
+
+
+  // =========================
+  // FUEL
+  // =========================
 
   fuelTypeId String
-  fuelType   FuelType @relation(fields: [fuelTypeId], references: [id])
 
-  litersGiven   Float
+  fuelType FuelType @relation(fields: [fuelTypeId], references: [id])
+
+
+  litersGiven Float
+
   pricePerLiter Float
-  totalCost     Float
 
-  paymentStatus String // paid | unpaid
+  totalCost Float
+
+
+  // =========================
+  // PAYMENT
+  // =========================
+
+  paymentStatus PaymentStatus @default(UNPAID)
+
+
+  // =========================
+  // AUDIT
+  // =========================
 
   createdAt DateTime @default(now())
-  updatedAt DateTime @default(now()) @updatedAt
 
-  fuelRequest FuelRequest @relation(fields: [fuelRequestId], references: [id])
-  user        User        @relation(fields: [userId], references: [id])
-  vehicle     Vehicle     @relation(fields: [vehicleId], references: [id])
-  station     Station     @relation(fields: [stationId], references: [id])
+  updatedAt DateTime @updatedAt
+
 }
+
+// model Transaction {
+//   id String @id @default(uuid())
+
+//   fuelRequestId String @unique
+//   userId        String
+//   vehicleId     String
+//   stationId     String
+
+//   fuelTypeId String
+//   fuelType   FuelType @relation(fields: [fuelTypeId], references: [id])
+
+//   litersGiven   Float
+//   pricePerLiter Float
+//   totalCost     Float
+
+//   paymentStatus String // paid | unpaid
+
+//   createdAt DateTime @default(now())
+//   updatedAt DateTime @default(now()) @updatedAt
+
+//   fuelRequest FuelRequest @relation(fields: [fuelRequestId], references: [id])
+//   user        User        @relation(fields: [userId], references: [id])
+//   vehicle     Vehicle     @relation(fields: [vehicleId], references: [id])
+//   station     Station     @relation(fields: [stationId], references: [id])
+// }
 
 model Camera {
   id String @id @default(uuid())
@@ -851,69 +973,180 @@ model Notification {
   createdAt DateTime @default(now())
 }
 
-// orginization controlling
 model Organization {
+
   id String @id @default(uuid())
+
 
   // =========================
   // BASIC IDENTITY
   // =========================
+
   name String
+
   type OrgType
 
-  registrationNumber String? @unique
+
+  registrationNumber String?@unique
+
 
   // =========================
-  // CONTACT INFO
+  // CONTACT INFORMATION
   // =========================
+
   contactPerson String?
-  phone         String?
-  email         String?
-  address       String?
+
+  phone String?
+
+  email String?
+
+  address String?
+
+
 
   // =========================
-  // STATUS CONTROL
+  // STATUS
   // =========================
+
   status OrgStatus @default(ACTIVE)
 
+
+
   // =========================
-  // BULK FUEL CONTROL (IMPORTANT)
+  // FUEL ACCOUNT CONTROL
   // =========================
-  creditLimit      Float @default(0)
-  availableCredit   Float @default(0)
+
+  allowFuelAccess Boolean @default(true)
+
+
+  // Credit based fueling
+  creditLimit Float @default(0)
+
+
+  availableCredit Float @default(0)
+
+
+
+  // =========================
+  // QUOTA POLICY
+  // =========================
+
+  allowQuotaFuel Boolean @default(true)
+
+
+  dailyQuotaLiters Float?
+
 
   monthlyQuotaLiters Float?
-  dailyQuotaLiters   Float?
 
-  maxTransactionLiters Float @default(500)
 
-  allowBulkFuel Boolean @default(true)
+  maxTransactionLiters Float @default(5000)
+
+
 
   // =========================
-  // AUTH CONTROL (OPTIONAL BUT RECOMMENDED)
+  // API / INTEGRATION
   // =========================
+
   apiKey String? @unique
+
+
+
+  // =========================
+  // RELATIONS
+  // =========================
+
+  fuelQuotas FuelQuota[]
+
+  fuelTransactions Transaction[]
+
+
 
   // =========================
   // AUDIT
   // =========================
+
   createdAt DateTime @default(now())
+
+
   updatedAt DateTime @updatedAt
+
 }
 
-model OrgVehicle {
+model FuelQuota {
+
   id String @id @default(uuid())
 
-  organizationId String
-  plateNumber String
 
-  vehicleType String? // Truck, Bus, Car
-  isActive Boolean @default(true)
+  // =====================
+  // ORGANIZATION
+  // =====================
+
+  organizationId String
+
+  organization Organization @relation(fields: [organizationId], references: [id])
+
+
+  // =====================
+  // PERIOD
+  // =====================
+
+  periodType QuotaPeriodType
+
+  startDate DateTime
+
+  endDate DateTime
+
+
+  // =====================
+  // ALLOCATION
+  // =====================
+
+  allocatedLiters Float
+
+  consumedLiters Float @default(0)
+
+  remainingLiters Float
+
+
+  // =====================
+  // FUEL TYPE
+  // =====================
+
+  fuelTypeId String
+
+  fuelType FuelType @relation(fields: [fuelTypeId], references: [id])
+
+
+  // =====================
+  // STATUS
+  // =====================
+
+  status QuotaStatus @default(ACTIVE)
+
+
+  // =====================
+  // AUDIT
+  // =====================
 
   createdAt DateTime @default(now())
+
+  updatedAt DateTime @updatedAt
+
+
+  // =====================
+  // INDEXES
+  // =====================
+
+  @@index([organizationId])
+
+  @@index([fuelTypeId])
+
+  @@index([status])
+
+  @@index([startDate, endDate])
+
 }
-
-
 
 
 
