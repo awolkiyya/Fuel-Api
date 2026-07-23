@@ -3,7 +3,7 @@
 set -e
 
 
-APP_DIR="/home/fueladmin/apps/fuel-api"
+APP_DIR="/home/oiadmin/apps/Fuel-Api"
 
 
 echo "======================================"
