@@ -894,6 +894,7 @@ export const completeDispensingFuelRequestService = async ({
     await tx.transaction.create({
 
       data: {
+        type: "NORMAL",
 
         fuelRequestId: fuelRequest.id,
 
@@ -914,7 +915,7 @@ export const completeDispensingFuelRequestService = async ({
         totalCost,
 
 
-        paymentStatus: "paid",
+        paymentStatus: "PAID",
       },
 
     });
