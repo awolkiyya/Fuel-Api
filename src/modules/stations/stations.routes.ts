@@ -207,6 +207,13 @@ router.get(
 )
 
 
+// now here manage the fuel transactions/request info also,fuel for stations
+router.get(
+  "/:id/fuel-transactions",
+  authMiddleware,
+  getStationStaffById
+)
+
 // // here the station operator side routes
 //  // ================= 🚏 STATION OPERATOR (FUEL REQUESTS) =================
 

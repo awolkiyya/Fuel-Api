@@ -1,24 +1,13 @@
 #!/bin/sh
-
 set -e
-
-
-echo "Waiting for database..."
-
-until npx prisma db execute --stdin <<EOF
-SELECT 1;
-EOF
-do
-    echo "Database unavailable - retrying..."
-    sleep 3
-done
-
 
 echo "Running Prisma migrations..."
 
-npx prisma migrate deploy
-
+until npx prisma migrate deploy; do
+    echo "Database unavailable - retrying in 3 seconds..."
+    sleep 3
+done
 
 echo "Starting Fuel API..."
 
-npm start
+exec npm start

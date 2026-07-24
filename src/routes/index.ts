@@ -139,6 +139,7 @@ console.log("🧭 /public/stations routes loaded");
 router.use("/public/stations", publicSationsRoutes);
 router.use("/public/vehicles", publicvehiclesRoutes);
 router.use("/public/fuelrequests", publicfuelRequestRoutes);
+router.use("/public/fueltransactions", publicfuelRequestRoutes);
 console.log("🧭 /public/license routes loaded");
 router.use("/public/license", publicLicenseRoutes);
 

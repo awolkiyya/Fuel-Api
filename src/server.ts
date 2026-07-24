@@ -7,7 +7,7 @@ dotenv.config();
 
 const PORT = Number(process.env.PORT) || 8080;
 
-const HOST = "0.0.0.0";
+const HOST =process.env.HOST  || "0.0.0.0";
 
 
 async function bootstrap() {
