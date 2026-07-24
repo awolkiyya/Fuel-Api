@@ -17,11 +17,11 @@
 
     "prisma:studio": "prisma studio",
 
-    "prisma:seed": "ts-node src/seed/seed.ts"
+    "prisma:seed": "node dist/seed/seed.js"
   },
 
   "prisma": {
-    "seed": "ts-node src/seed/seed.ts"
+    "seed": "node dist/seed/seed.js"
   },
 
   "dependencies": {
