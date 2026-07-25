@@ -1,6 +1,8 @@
 import cors from "cors";
+// this is what i should manage 
 
 const allowedOrigins = [
+  "http://http://196.190.216.29",
   "http://localhost:3000",
   "http://127.0.0.1:3000",
   "http://localhost:5173",
