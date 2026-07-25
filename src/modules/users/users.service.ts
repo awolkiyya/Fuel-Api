@@ -74,6 +74,23 @@ export const userService = {
     return userRepository.update(id, data);
   },
 
+  // =====================================================
+  // RESET USER PASSWORD
+  // =====================================================
+  resetUserPassword: async (id: string, password: string) => {
+    const user = await userRepository.findById(id);
+  
+    if (!user) {
+      throw new AppError("User not found", 404, "USER_NOT_FOUND");
+    }
+  
+    const hashedPassword = await bcrypt.hash(password, 10);
+  
+    return userRepository.update(id, {
+      password: hashedPassword,
+    });
+  },
+
   deleteUser: async (id: string) => {
     const user = await userRepository.findById(id);
 

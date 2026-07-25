@@ -167,52 +167,55 @@ export const userRepository = {
       },
     })
   },
-
   /* -----------------------------
-     UPDATE USER (SAFE)
-  ------------------------------ */
-  update: async (id: string, data: UpdateUserDTO) => {
-    const updateData: Prisma.UserUpdateInput = {}
-  
-    if (data.full_name !== undefined) {
-      updateData.full_name = data.full_name
-    }
-  
-    if (data.phone !== undefined) {
-      updateData.phone = data.phone
-    }
-  
-    if (data.email !== undefined) {
-      updateData.email = data.email
-    }
-  
-    if (data.role !== undefined) {
-      updateData.role = data.role as UserRole
-    }
-  
-    if (data.status !== undefined) {
-      updateData.status = data.status
-    }
-  
-    if (data.gender !== undefined) {
-      updateData.gender = data.gender
-    }
-  
-    return prisma.user.update({
-      where: { id },
-      data: updateData,
-      select: {
-        id: true,
-        full_name: true,
-        phone: true,
-        email: true,
-        role: true,
-        gender: true,   // ✅ important
-        status: true,   // ✅ important
-        createdAt: true,
-      },
-    })
-  },
+   UPDATE USER (SAFE)
+------------------------------ */
+update: async (id: string, data: UpdateUserDTO) => {
+  const updateData: Prisma.UserUpdateInput = {};
+
+  if (data.full_name !== undefined) {
+    updateData.full_name = data.full_name;
+  }
+
+  if (data.phone !== undefined) {
+    updateData.phone = data.phone;
+  }
+
+  if (data.email !== undefined) {
+    updateData.email = data.email;
+  }
+
+  if (data.password !== undefined) {
+    updateData.password = data.password;
+  }
+
+  if (data.role !== undefined) {
+    updateData.role = data.role as UserRole;
+  }
+
+  if (data.status !== undefined) {
+    updateData.status = data.status;
+  }
+
+  if (data.gender !== undefined) {
+    updateData.gender = data.gender;
+  }
+
+  return prisma.user.update({
+    where: { id },
+    data: updateData,
+    select: {
+      id: true,
+      full_name: true,
+      phone: true,
+      email: true,
+      role: true,
+      gender: true,
+      status: true,
+      createdAt: true,
+    },
+  });
+},
   /* -----------------------------
      DELETE USER
   ------------------------------ */

@@ -16,6 +16,8 @@ export type UpdateUserDTO = {
   role?: UserRole
   status?: UserStatus
   gender?: Gender
+  password?: string;
+
 }
 
 export type UserResponse = {

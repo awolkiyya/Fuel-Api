@@ -2,46 +2,47 @@ import { Request, Response } from "express";
 import { onboardingService } from "./onboarding.service";
 import { sendResponse } from "../../utils/apiResponse";
 import { sendError } from "../../utils/apiError";
+import { userResource } from "../users/user.resource";
 
 // =========================
 // GET MY PROFILE
 // =========================
-export const getMyProfile = async (req: any, res: Response) => {
-  try {
-    const userId = req.user?.id;
+// export const getMyProfile = async (req: any, res: Response) => {
+//   try {
+//     const userId = req.user?.id;
 
-    if (!userId) {
-      return sendError(res, {
-        statusCode: 401,
-        message: "Unauthorized",
-        code: "UNAUTHORIZED",
-      });
-    }
+//     if (!userId) {
+//       return sendError(res, {
+//         statusCode: 401,
+//         message: "Unauthorized",
+//         code: "UNAUTHORIZED",
+//       });
+//     }
 
-    const user = await onboardingService.getMyProfile(userId);
+//     const user = await onboardingService.getMyProfile(userId);
 
-    if (!user) {
-      return sendError(res, {
-        statusCode: 404,
-        message: "Profile not found",
-        code: "PROFILE_NOT_FOUND",
-      });
-    }
+//     if (!user) {
+//       return sendError(res, {
+//         statusCode: 404,
+//         message: "Profile not found",
+//         code: "PROFILE_NOT_FOUND",
+//       });
+//     }
 
-    return sendResponse(res, {
-      statusCode: 200,
-      message: "Profile fetched successfully",
-      data: user,
-    });
+//     return sendResponse(res, {
+//       statusCode: 200,
+//       message: "Profile fetched successfully",
+//       data: user,
+//     });
 
-  } catch (error: any) {
-    return sendError(res, {
-      statusCode: 500,
-      message: error.message || "Failed to get profile",
-      code: "GET_PROFILE_FAILED",
-    });
-  }
-};
+//   } catch (error: any) {
+//     return sendError(res, {
+//       statusCode: 500,
+//       message: error.message || "Failed to get profile",
+//       code: "GET_PROFILE_FAILED",
+//     });
+//   }
+// };
 
 // =========================
 // UPDATE PROFILE (ONBOARDING)
@@ -49,7 +50,6 @@ export const getMyProfile = async (req: any, res: Response) => {
 export const updateProfile = async (req: any, res: Response) => {
     try {
       const userId = req.user?.id;
-      console.log("i'm here");
   
       if (!userId) {
         return sendError(res, {
@@ -65,11 +65,16 @@ export const updateProfile = async (req: any, res: Response) => {
         userId,
         req.body
       );
+
+      console.log("updated value",updated);
+
   
       return sendResponse(res, {
         statusCode: 200,
         message: "Profile updated successfully",
-        data: updated,
+        data: {
+          user: userResource(updated)
+        }
       });
   
     } catch (error: any) {

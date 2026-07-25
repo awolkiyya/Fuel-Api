@@ -9,40 +9,44 @@ type IdParams = {
   id: string;
 };
 
+// =====================================================
 // GET ALL USERS
+// =====================================================
 export const getUsers = async (req: Request, res: Response) => {
   try {
-    const { page, limit, skip } = getPagination(req.query)
+    const { page, limit, skip } = getPagination(req.query);
 
-    const search = (req.query.search as string) || ""
-    const role = (req.query.role as string) || ""
-    const status = (req.query.status as string) || ""
+    const search = (req.query.search as string) || "";
+    const role = (req.query.role as string) || "";
+    const status = (req.query.status as string) || "";
 
-    /* 👇 GET CURRENT USER ID FROM AUTH MIDDLEWARE */
-    const currentUserId = (req as any).user?.id
+    const currentUserId = (req as any).user?.id;
 
     const result = await userService.getAllUsers({
       page,
       limit,
       skip,
       search,
+      role,
       status,
       currentUserId,
-    })
+    });
 
     return sendResponse(res, {
       message: "Users fetched successfully",
       data: result.data.map(userResource),
       meta: result.meta,
-    })
+    });
   } catch (err: any) {
     return sendError(res, {
       message: err.message,
-    })
+    });
   }
-}
+};
 
+// =====================================================
 // GET USER BY ID
+// =====================================================
 export const getUserById = async (
   req: Request<IdParams>,
   res: Response
@@ -63,36 +67,65 @@ export const getUserById = async (
   }
 };
 
+// =====================================================
 // CREATE USER
+// =====================================================
 export const createUser = async (req: Request, res: Response) => {
-    const user = await userService.createUser(req.body);
+  const user = await userService.createUser(req.body);
 
-    return sendResponse(res, {
-      message: "User created successfully",
-      data: user,
-      statusCode: 201,
-    });
+  return sendResponse(res, {
+    message: "User created successfully",
+    data: user,
+    statusCode: 201,
+  });
 };
 
-  // UPDATE USER
-  export const updateUser = async (
-    req: Request,
-    res: Response
-  ) => {
-    // ================= VEHICLE ID =================
-    const id = Array.isArray(req.params.id)
+// =====================================================
+// UPDATE USER
+// =====================================================
+export const updateUser = async (
+  req: Request,
+  res: Response
+) => {
+  const id = Array.isArray(req.params.id)
     ? req.params.id[0]
     : req.params.id;
 
-      const user = await userService.updateUser(id, req.body)
+  const user = await userService.updateUser(id, req.body);
 
-      return sendResponse(res, {
-        message: "User updated successfully",
-        data: user,
-      })
+  return sendResponse(res, {
+    message: "User updated successfully",
+    data: user,
+  });
+};
+
+// =====================================================
+// RESET USER PASSWORD
+// =====================================================
+export const resetUserPassword = async (
+  req: Request<IdParams>,
+  res: Response
+) => {
+  try {
+    const { password } = req.body;
+
+    await userService.resetUserPassword(req.params.id, password);
+
+    return sendResponse(res, {
+      message: "Password reset successfully",
+    });
+  } catch (err: any) {
+    return sendError(res, {
+      message: err.message || "Failed to reset password",
+      statusCode: 400,
+      code: "PASSWORD_RESET_FAILED",
+    });
   }
+};
 
+// =====================================================
 // DELETE USER
+// =====================================================
 export const deleteUser = async (
   req: Request<IdParams>,
   res: Response

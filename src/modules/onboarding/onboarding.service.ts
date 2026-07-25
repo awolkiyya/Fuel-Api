@@ -21,6 +21,7 @@ const mapUserResponse = (user: any) => {
     permissions,
     driverProfile: user.driverProfile ?? null,
     createdAt: user.createdAt,
+    gender:user.gender,
   };
 };
 export const onboardingService = {

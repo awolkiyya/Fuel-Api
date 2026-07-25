@@ -8,6 +8,11 @@ export class BusinessLicenseController {
  */
 static async create(req: Request, res: Response) {
   try {
+
+
+    console.log("🔥 CREATE LICENSE HIT");
+ console.log("BODY:",req.body);
+ console.log("FILE:",req.file);
     const userId = (req as any).user?.id;
 
     // ================= AUTH CHECK =================
@@ -17,6 +22,7 @@ static async create(req: Request, res: Response) {
         message: "Unauthorized. Please login again.",
       });
     }
+    console.log("i'm here");
 
     // ================= VALIDATION =================
     const parsed = createBusinessLicenseSchema.parse(req.body);

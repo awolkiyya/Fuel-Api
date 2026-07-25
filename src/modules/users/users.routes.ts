@@ -5,31 +5,33 @@ import {
   createUser,
   updateUser,
   deleteUser,
+  resetUserPassword, // 👈 add this
 } from "./users.controller";
 
 import { authMiddleware } from "../../middlewares/auth.middleware";
 import { validate } from "../../middlewares/validate.middleware";
+import { requirePermission } from "../../middlewares/permission.middleware";
 
-// schemas (you will create these)
 import {
   createUserSchema,
   updateUserSchema,
   idParamSchema,
+  resetUserPasswordSchema, // 👈 add this
 } from "../../schemas/users.schema";
-
-import { requirePermission } from "../../middlewares/permission.middleware";
 
 const router = Router();
 
+// =====================================================
+// USERS
+// =====================================================
 
-// 👤 GET ALL USERS (admin only)
+// 👤 GET ALL USERS
 router.get(
   "/",
   authMiddleware,
   requirePermission("manage_users"),
   getUsers
 );
-
 
 // 👤 GET USER BY ID
 router.get(
@@ -40,8 +42,7 @@ router.get(
   getUserById
 );
 
-
-// ➕ CREATE USER (admin only)
+// ➕ CREATE USER
 router.post(
   "/",
   authMiddleware,
@@ -49,7 +50,6 @@ router.post(
   validate(createUserSchema),
   createUser
 );
-
 
 // ✏️ UPDATE USER
 router.put(
@@ -61,6 +61,15 @@ router.put(
   updateUser
 );
 
+// 🔑 RESET USER PASSWORD (Admin)
+router.patch(
+  "/:id/reset-password",
+  authMiddleware,
+  requirePermission("manage_users"),
+  validate(idParamSchema, "params"),
+  validate(resetUserPasswordSchema),
+  resetUserPassword
+);
 
 // ❌ DELETE USER
 router.delete(
