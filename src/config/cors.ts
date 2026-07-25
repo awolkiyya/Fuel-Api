@@ -1,35 +1,48 @@
 import cors from "cors";
-// this is what i should manage 
 
 const allowedOrigins = [
-  "http://http://196.190.216.29",
+  "http://196.190.216.29",
   "http://localhost:3000",
   "http://127.0.0.1:3000",
   "http://localhost:5173",
-  "http://localhost:3001"
+  "http://localhost:3001",
 ];
 
 export const corsConfig = cors({
   origin: (origin, callback) => {
     // allow server-to-server / curl / postman
-    if (!origin) return callback(null, true);
+    if (!origin) {
+      return callback(null, true);
+    }
 
-    // allow localhost exact matches
+    // exact allowed origins
     if (allowedOrigins.includes(origin)) {
       return callback(null, true);
     }
 
-    // 🔥 allow ANY local network (192.168.x.x)
+    // allow local network development
     if (/^http:\/\/192\.168\.\d+\.\d+:\d+$/.test(origin)) {
       return callback(null, true);
     }
 
-    return callback(new Error(`CORS blocked: ${origin}`));
+    return callback(
+      new Error(`CORS blocked: ${origin}`)
+    );
   },
 
   credentials: true,
 
-  methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
+  methods: [
+    "GET",
+    "POST",
+    "PUT",
+    "PATCH",
+    "DELETE",
+    "OPTIONS",
+  ],
 
-  allowedHeaders: ["Content-Type", "Authorization"],
+  allowedHeaders: [
+    "Content-Type",
+    "Authorization",
+  ],
 });
