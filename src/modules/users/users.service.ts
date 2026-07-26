@@ -5,34 +5,52 @@ import { buildMeta } from "../../utils/pagination";
 import { AppError } from "../../utils/AppError";
 
 export const userService = {
-  getAllUsers: async ({
-    page,
-    limit,
-    skip,
-    search,
-    status,
-    currentUserId,
-  }: any) => {
-    const [users, total] = await Promise.all([
-      userRepository.findAll({
-        skip,
-        limit,
-        search,
-        status,
-        excludeUserId: currentUserId,
-      }),
-      userRepository.count({
-        search,
-        status,
-        excludeUserId: currentUserId,
-      }),
-    ]);
+ // =====================================================
+// GET ALL USERS
+// =====================================================
+getAllUsers: async ({
+  page,
+  limit,
+  skip,
+  search,
+  role,
+  status,
+  currentUserId,
+}: any) => {
 
-    return {
-      data: users,
-      meta: buildMeta(page, limit, total),
-    };
-  },
+
+  const [users,total] = await Promise.all([
+
+    userRepository.findAll({
+
+      skip,
+      limit,
+      search,
+      role,
+      status,
+      excludeUserId:currentUserId,
+
+    }),
+
+
+    userRepository.count({
+
+      search,
+      role,
+      status,
+      excludeUserId:currentUserId,
+
+    })
+
+  ]);
+
+
+  return {
+    data:users,
+    meta:buildMeta(page,limit,total)
+  };
+
+},
 
   getUserById: async (id: string) => {
     const user = await userRepository.findById(id);

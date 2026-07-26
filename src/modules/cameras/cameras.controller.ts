@@ -3,6 +3,7 @@ import prisma from "../../config/db";
 import ffmpeg from "fluent-ffmpeg"
 import ffprobePath from "ffprobe-static"
 
+
 ffmpeg.setFfprobePath(ffprobePath.path)
 
 /* =========================================================
@@ -76,107 +77,402 @@ export const getCameraById = async (req: Request, res: Response) => {
   }
 };
 
-export const createCamera = async (req: Request, res: Response) => {
+
+
+
+/* =========================================================
+   CREATE CAMERA
+========================================================= */
+/* =========================================================
+   CREATE CAMERA
+========================================================= */
+export const createCamera = async (
+  req: Request,
+  res: Response
+) => {
+
   try {
+
     const {
       name,
       stationId,
-      streamUrl,
-      location,
-      ipAddress,
+      protocol,
+      host,
       port,
+      streamPath,
+      authType,
+      username,
+      password,
+      location,
+      latitude,
+      longitude,
+      resolution,
       fps,
       codec,
-      resolution,
       aiEnabled,
-    } = req.body
+      isActive,
+    } = req.body;
 
-    const camera = await prisma.camera.create({
-      data: {
-        name,
-        streamUrl,
 
-        type: "rtsp",
 
-        station: {
-          connect: { id: stationId },
-        },
+    const camera =
+      await prisma.$transaction(
+        async (tx) => {
 
-        location,
-        ipAddress,
-        port,
-        fps,
-        codec,
-        resolution,
 
-        aiEnabled: aiEnabled ?? false,
-      },
-    })
+          /*
+            If this camera becomes AI camera,
+            disable previous AI camera
+          */
+
+          if(aiEnabled === true){
+
+            await tx.camera.updateMany({
+
+              where:{
+                stationId,
+                aiEnabled:true,
+              },
+
+              data:{
+                aiEnabled:false,
+              }
+
+            });
+
+          }
+
+
+
+          return tx.camera.create({
+
+            data:{
+
+              name,
+
+              station:{
+                connect:{
+                  id:stationId
+                }
+              },
+
+
+              protocol,
+
+              host,
+
+              port:port ?? 554,
+
+              path:streamPath,
+
+
+              authType:
+                authType ?? "NONE",
+
+
+              username:
+                username ?? null,
+
+
+              passwordEncrypted:
+                password
+                  ? encrypt(password)
+                  : null,
+
+
+              location:
+                location ?? null,
+
+
+              latitude:
+                latitude ?? null,
+
+
+              longitude:
+                longitude ?? null,
+
+
+              resolution:
+                resolution ?? null,
+
+
+              fps:
+                fps ?? null,
+
+
+              codec:
+                codec ?? null,
+
+
+              aiEnabled:
+                aiEnabled ?? false,
+
+
+              isActive:
+                isActive ?? true,
+
+            }
+
+          });
+
+
+        });
+
+
 
     return res.status(201).json({
-      success: true,
-      message: "Camera created successfully",
-      data: camera,
-    })
-  } catch (error) {
-    return handleError(res, error, "Failed to create camera")
+
+      success:true,
+
+      message:
+        "Camera created successfully",
+
+      data:camera,
+
+    });
+
+
+
+  } catch(error){
+
+    return handleError(
+      res,
+      error,
+      "Failed to create camera"
+    );
+
   }
+
+};
+
+/* =========================================================
+   UPDATE CAMERA
+========================================================= */
+/* =========================================================
+   UPDATE CAMERA
+========================================================= */
+export const updateCamera = async (
+  req: Request,
+  res: Response
+) => {
+
+try {
+
+
+const id =
+ Array.isArray(req.params.id)
+ ? req.params.id[0]
+ : req.params.id;
+
+
+
+const existing =
+ await prisma.camera.findUnique({
+  where:{id},
+ });
+
+
+
+if(!existing){
+
+ return res.status(404).json({
+  success:false,
+  message:"Camera not found"
+ });
+
 }
 
-export const updateCamera = async (req: Request, res: Response) => {
-  try {
-    const id = Array.isArray(req.params.id)
-      ? req.params.id[0]
-      : req.params.id
 
-    const camera = await prisma.camera.findUnique({
-      where: { id },
-    })
 
-    if (!camera) {
-      return res.status(404).json({
-        success: false,
-        message: "Camera not found",
-      })
-    }
+const {
+ name,
+ protocol,
+ host,
+ port,
+ streamPath,
+ authType,
+ username,
+ password,
+ location,
+ latitude,
+ longitude,
+ resolution,
+ fps,
+ codec,
+ aiEnabled,
+ isActive,
+} = req.body;
 
-    const {
-      name,
-      streamUrl,
-      location,
-      ipAddress,
-      port,
-      fps,
-      codec,
-      resolution,
-      aiEnabled,
-    } = req.body
 
-    const updated = await prisma.camera.update({
-      where: { id },
-      data: {
-        ...(name && { name }),
-        ...(streamUrl && { streamUrl }),
-        ...(location && { location }),
-        ...(ipAddress && { ipAddress }),
-        ...(port && { port }),
-        ...(fps && { fps }),
-        ...(codec && { codec }),
-        ...(resolution && { resolution }),
-        ...(typeof aiEnabled === "boolean" && { aiEnabled }),
-      },
-    })
 
-    return res.json({
-      success: true,
-      message: "Camera updated successfully",
-      data: updated,
-    })
-  } catch (error) {
-    return handleError(res, error, "Failed to update camera")
-  }
+const updated =
+ await prisma.$transaction(
+ async(tx)=>{
+
+
+   /*
+     If enabling AI,
+     disable other station cameras
+   */
+
+   if(
+     aiEnabled === true &&
+     existing.stationId
+   ){
+
+     await tx.camera.updateMany({
+
+       where:{
+
+         stationId:
+           existing.stationId,
+
+         id:{
+           not:id
+         },
+
+         aiEnabled:true,
+
+       },
+
+       data:{
+         aiEnabled:false
+       }
+
+     });
+
+   }
+
+
+
+   return tx.camera.update({
+
+     where:{id},
+
+     data:{
+
+
+       ...(name !== undefined && {
+         name
+       }),
+
+
+       ...(protocol !== undefined && {
+         protocol
+       }),
+
+
+       ...(host !== undefined && {
+         host
+       }),
+
+
+       ...(port !== undefined && {
+         port
+       }),
+
+
+       ...(streamPath !== undefined && {
+         path:streamPath
+       }),
+
+
+
+       ...(authType !== undefined && {
+         authType
+       }),
+
+
+
+       ...(username !== undefined && {
+         username
+       }),
+
+
+
+       ...(password && {
+         passwordEncrypted:
+           encrypt(password)
+       }),
+
+
+
+       ...(location !== undefined && {
+         location
+       }),
+
+
+       ...(latitude !== undefined && {
+         latitude
+       }),
+
+
+       ...(longitude !== undefined && {
+         longitude
+       }),
+
+
+
+       ...(resolution !== undefined && {
+         resolution
+       }),
+
+
+       ...(fps !== undefined && {
+         fps
+       }),
+
+
+       ...(codec !== undefined && {
+         codec
+       }),
+
+
+
+       ...(aiEnabled !== undefined && {
+         aiEnabled
+       }),
+
+
+
+       ...(isActive !== undefined && {
+         isActive
+       }),
+
+
+     }
+
+   });
+
+
+ });
+
+
+
+return res.json({
+
+ success:true,
+
+ message:
+  "Camera updated successfully",
+
+ data:updated,
+
+});
+
+
+
+}catch(error){
+
+return handleError(
+ res,
+ error,
+ "Failed to update camera"
+);
+
 }
 
+};
 /* =========================================================
    DELETE CAMERA (soft delete recommended in future)
 ========================================================= */
@@ -226,66 +522,189 @@ export const toggleCameraStatus = async (req: Request, res: Response) => {
 
 /* =========================================================
    TOGGLE AI
+
+   Rule:
+   - Only one AI camera allowed per station
 ========================================================= */
-export const toggleCameraAI = async (req: Request, res: Response) => {
+
+export const toggleCameraAI = async (
+  req: Request,
+  res: Response
+) => {
+
   try {
-  const id = Array.isArray(req.params.id)
-    ? req.params.id[0]
-    : req.params.id; 
-    
+
+    const id = Array.isArray(req.params.id)
+      ? req.params.id[0]
+      : req.params.id;
+
+
     const { aiEnabled } = req.body;
 
-    const updated = await prisma.camera.update({
-      where: { id },
-      data: {
-        aiEnabled,
-      },
-    });
+
+    if (typeof aiEnabled !== "boolean") {
+
+      return res.status(400).json({
+        success:false,
+        message:"aiEnabled must be boolean",
+      });
+
+    }
+
+
+
+    const camera =
+      await prisma.camera.findUnique({
+        where:{
+          id
+        },
+        select:{
+          id:true,
+          stationId:true,
+        }
+      });
+
+
+
+    if(!camera){
+
+      return res.status(404).json({
+        success:false,
+        message:"Camera not found",
+      });
+
+    }
+
+
+
+    const result =
+      await prisma.$transaction(
+        async (tx)=>{
+
+
+          /*
+            Enabling AI:
+            Disable all other cameras
+            in same station
+          */
+
+          if(aiEnabled){
+
+
+            await tx.camera.updateMany({
+
+              where:{
+                stationId:camera.stationId,
+
+                id:{
+                  not:id
+                },
+
+                aiEnabled:true,
+              },
+
+              data:{
+                aiEnabled:false,
+              }
+
+            });
+
+
+          }
+
+
+
+          /*
+            Update selected camera
+          */
+
+          const updated =
+            await tx.camera.update({
+
+              where:{
+                id
+              },
+
+              data:{
+                aiEnabled
+              }
+
+            });
+
+
+          return updated;
+
+        }
+      );
+
+
 
     return res.json({
-      success: true,
-      message: "AI setting updated",
-      data: updated,
+
+      success:true,
+
+      message:
+        aiEnabled
+          ? "AI enabled. Other station cameras disabled."
+          : "AI disabled.",
+
+      data:result,
+
     });
-  } catch (error) {
-    return handleError(res, error, "Failed to toggle AI");
+
+
+
+  } catch(error){
+
+    return handleError(
+      res,
+      error,
+      "Failed to toggle AI"
+    );
+
   }
+
 };
 
 
 /* =========================================================
    REAL CAMERA STREAM TEST (PRODUCTION + RELIABLE + SAFE)
 ========================================================= */
-
 import dns from "dns";
+import { fetchWithDigestAuth } from "../../utils/digestAuth"; // adjust to wherever you saved it
 import { CameraStatus, Prisma } from "@prisma/client";
+import { decrypt, encrypt } from "../../utils/crypto";
+
 dns.setDefaultResultOrder("ipv4first");
+
+// Strip any embedded credentials before this URL is logged or sent
+// back in an API response — streamUrl should never leak a password.
+function redactCredentials(url: string) {
+  return url.replace(/:\/\/[^@/]+@/, "://***:***@");
+}
 
 export const testCameraStream = async (req: Request, res: Response) => {
   try {
-    const id = Array.isArray(req.params.id)
-      ? req.params.id[0]
-      : req.params.id;
+    const id = Array.isArray(req.params.id) ? req.params.id[0] : req.params.id;
 
-    const camera = await prisma.camera.findUnique({
-      where: { id },
-    });
+    const camera = await prisma.camera.findUnique({ where: { id } });
 
     if (!camera) {
-      return res.status(404).json({
-        success: false,
-        message: "Camera not found",
-      });
+      return res.status(404).json({ success: false, message: "Camera not found" });
     }
 
-    if (!camera.streamUrl) {
-      return res.status(400).json({
-        success: false,
-        message: "Camera stream URL is missing",
-      });
+    let password = "";
+    if (camera.passwordEncrypted) {
+      password = decrypt(camera.passwordEncrypted);
     }
 
-    const url = camera.streamUrl;
+    const protocol = camera.protocol.toLowerCase();
+
+    // No credentials embedded here — auth is applied per authType,
+    // per protocol, below. This is also the URL that gets logged /
+    // returned to the client.
+    const baseUrl = `${protocol}://${camera.host}:${camera.port}${camera.path}`;
+
     const start = Date.now();
 
     let isOnline = false;
@@ -293,18 +712,16 @@ export const testCameraStream = async (req: Request, res: Response) => {
     let errorCode: string | null = null;
     let method = "unknown";
 
-    const isHttpStream =
-      url.startsWith("http://") || url.startsWith("https://");
+    const isHttpStream = camera.protocol === "HTTP" || camera.protocol === "HTTPS";
 
     const isMjpeg =
-      url.includes("mjpeg") ||
-      url.includes("multipart") ||
-      url.includes("/video");
+      camera.path.includes("mjpeg") ||
+      camera.path.includes("multipart") ||
+      camera.path.includes("/video");
 
-    /* =========================================================
-       HTTP / MJPEG CHECK (SAFE HEAD + STREAM VALIDATION)
-    ========================================================= */
-
+    /* =========================================
+       HTTP MJPEG
+    ========================================= */
     if (isHttpStream && isMjpeg) {
       method = "http-mjpeg";
 
@@ -312,73 +729,87 @@ export const testCameraStream = async (req: Request, res: Response) => {
       const timeout = setTimeout(() => controller.abort(), 8000);
 
       try {
-        const response = await fetch(url, {
-          method: "GET",
-          signal: controller.signal,
-        });
+        let response: globalThis.Response;
+
+        switch (camera.authType) {
+          case "DIGEST":
+            if (!camera.username || !password) {
+              throw new Error("DIGEST auth configured but username/password missing");
+            }
+            response = await fetchWithDigestAuth(
+              baseUrl,
+              camera.username,
+              password,
+              controller.signal
+            );
+            break;
+
+          case "BASIC": {
+            if (!camera.username || !password) {
+              throw new Error("BASIC auth configured but username/password missing");
+            }
+            const basicUrl = baseUrl.replace(
+              "://",
+              `://${camera.username}:${password}@`
+            );
+            response = await fetch(basicUrl, {
+              method: "GET",
+              signal: controller.signal,
+            });
+            break;
+          }
+
+          case "NONE":
+          default:
+            response = await fetch(baseUrl, {
+              method: "GET",
+              signal: controller.signal,
+            });
+            break;
+        }
 
         if (!response.ok || !response.body) {
           throw new Error(`HTTP_${response.status}`);
         }
 
-        // ⚠️ IMPORTANT: do NOT fully consume stream (causes false failures)
         const reader = response.body.getReader();
 
-        const { done, value } = await Promise.race([
+        const result = await Promise.race([
           reader.read(),
-          new Promise<{ done: true; value: undefined }>((_, reject) =>
+          new Promise<any>((_, reject) =>
             setTimeout(() => reject(new Error("STREAM_TIMEOUT")), 4000)
           ),
         ]);
 
-        isOnline = !done && !!value && value.length > 0;
+        isOnline = !result.done && !!result.value && result.value.length > 0;
+
+        reader.releaseLock();
 
         if (!isOnline) {
           errorCode = "EMPTY_STREAM";
           errorMessage = "Connected but no frame received";
         }
-
-        reader.releaseLock();
       } catch (err: any) {
-        isOnline = false;
-
-        const code =
-          err?.code ||
-          err?.cause?.code ||
-          err?.errno ||
-          err?.message;
-
-        errorCode =
-          code === "ECONNREFUSED"
-            ? "CONNECTION_REFUSED"
-            : code === "EHOSTUNREACH"
-            ? "HOST_UNREACHABLE"
-            : code === "ENETUNREACH"
-            ? "NETWORK_UNREACHABLE"
-            : code === "ENOTFOUND"
-            ? "DNS_NOT_FOUND"
-            : err?.name === "AbortError"
-            ? "ABORTED_TIMEOUT"
-            : "HTTP_FAILED";
-
-        errorMessage = err?.message || "MJPEG stream error";
-
-        console.error("[CAMERA MJPEG TEST ERROR]", {
-          url,
-          errorCode,
-          errorMessage,
-        });
+        errorCode = err?.cause?.code || err?.code || "HTTP_FAILED";
+        errorMessage = err.message;
       } finally {
         clearTimeout(timeout);
       }
     }
 
-    /* =========================================================
-       RTSP / VIDEO CHECK (FFPROBE SAFE)
-    ========================================================= */
-
+    /* =========================================
+       RTSP / OTHER VIDEO
+       ffmpeg negotiates Basic/Digest itself when
+       credentials are embedded in the URL, so no
+       manual handshake is needed on this path.
+    ========================================= */
     else {
       method = "ffprobe";
+
+      const ffprobeUrl =
+        camera.authType !== "NONE" && camera.username && password
+          ? baseUrl.replace("://", `://${camera.username}:${password}@`)
+          : baseUrl;
 
       isOnline = await new Promise<boolean>((resolve) => {
         let finished = false;
@@ -387,28 +818,26 @@ export const testCameraStream = async (req: Request, res: Response) => {
           if (!finished) {
             finished = true;
             errorCode = "TIMEOUT";
-            errorMessage = "ffprobe timeout (8s)";
+            errorMessage = "ffprobe timeout";
             resolve(false);
           }
         }, 8000);
 
-        ffmpeg.ffprobe(url, (err) => {
+        ffmpeg.ffprobe(ffprobeUrl, (err) => {
           if (finished) return;
 
           clearTimeout(timeout);
           finished = true;
 
           if (err) {
-            errorCode =
-              err.message?.includes("ENOENT")
-                ? "NOT_FOUND"
-                : err.message?.includes("ECONNREFUSED")
-                ? "CONNECTION_REFUSED"
-                : err.message?.includes("ETIMEDOUT")
-                ? "TIMEOUT"
-                : "PROBE_FAILED";
+            errorCode = err.message.includes("ECONNREFUSED")
+              ? "CONNECTION_REFUSED"
+              : err.message.includes("ETIMEDOUT")
+              ? "TIMEOUT"
+              : "PROBE_FAILED";
 
             errorMessage = err.message;
+
             return resolve(false);
           }
 
@@ -417,43 +846,29 @@ export const testCameraStream = async (req: Request, res: Response) => {
       });
     }
 
-    /* =========================================================
-       METRICS
-    ========================================================= */
-
     const latencyMs = Date.now() - start;
 
     await prisma.camera.update({
       where: { id },
       data: {
-        status: isOnline ? "online" : "offline",
+        status: isOnline ? CameraStatus.online : CameraStatus.offline,
         lastCheckedAt: new Date(),
-        ...(isOnline && {
-          lastSeenAt: new Date(),
-        }),
+        ...(isOnline && { lastSeenAt: new Date() }),
       },
     });
 
-    /* =========================================================
-       RESPONSE
-    ========================================================= */
-
-    return res.status(200).json({
+    return res.json({
       success: true,
-      message: isOnline
-        ? "Camera stream is online"
-        : "Camera stream is offline",
-
+      message: isOnline ? "Camera stream is online" : "Camera stream is offline",
       data: {
         id: camera.id,
         cameraName: camera.name,
-        status: isOnline ? "online" : "offline",
+        status: isOnline ? CameraStatus.online : CameraStatus.offline,
         latencyMs,
-
         method,
+        streamUrl: redactCredentials(baseUrl),
         error: isOnline ? null : errorMessage,
         errorCode: isOnline ? null : errorCode,
-
         testedAt: new Date(),
       },
     });
@@ -461,7 +876,6 @@ export const testCameraStream = async (req: Request, res: Response) => {
     return handleError(res, error, "Failed to test camera stream");
   }
 };
-
 
 
 /* =========================================================
@@ -558,144 +972,319 @@ export const getStationAiCameras = async (
   req: Request,
   res: Response
 ) => {
+
   try {
+
     const rawStationId = req.params.stationId;
+
 
     const stationId =
       typeof rawStationId === "string"
         ? rawStationId
         : rawStationId?.[0];
 
+
     if (!stationId) {
+
       return res.status(400).json({
-        success: false,
-        message: "stationId is required",
+
+        success:false,
+
+        message:"stationId is required"
+
       });
+
     }
+
+
 
     const search =
       typeof req.query.search === "string"
         ? req.query.search
         : undefined;
 
+
+
     const status =
       typeof req.query.status === "string"
-        ? (req.query.status as CameraStatus)
+        ? req.query.status as CameraStatus
         : undefined;
+
+
 
     const page =
       typeof req.query.page === "string"
         ? Number(req.query.page)
         : 1;
 
+
+
     const limit =
       typeof req.query.limit === "string"
         ? Number(req.query.limit)
         : 20;
 
-    const skip = (page - 1) * limit;
+
+
+    const skip =
+      (page - 1) * limit;
+
+
+
 
     const where: Prisma.CameraWhereInput = {
-      stationId,
-      aiEnabled: true,
 
-      ...(status && { status }),
+      stationId,
+
+      aiEnabled:true,
+
+
+      ...(status && {
+        status
+      }),
+
+
 
       ...(search && {
-        OR: [
+
+        OR:[
+
           {
-            name: {
-              contains: search,
-              mode: "insensitive",
-            },
+            name:{
+              contains:search,
+              mode:"insensitive"
+            }
           },
+
           {
-            location: {
-              contains: search,
-              mode: "insensitive",
-            },
+            location:{
+              contains:search,
+              mode:"insensitive"
+            }
           },
-        ],
-      }),
+
+          {
+            host:{
+              contains:search,
+              mode:"insensitive"
+            }
+          }
+
+        ]
+
+      })
+
     };
 
-    const [stationSetting, cameras, total] =
-      await Promise.all([
-        prisma.stationSetting.findUnique({
-          where: {
-            stationId,
-          },
-          select: {
-            queueZone: true,
-          },
-        }),
 
-        prisma.camera.findMany({
-          where,
-          skip,
-          take: limit,
-          orderBy: {
-            createdAt: "desc",
-          },
-          select: {
-            id: true,
-            stationId: true,
-            name: true,
-            streamUrl: true,
-            type: true,
-            status: true,
-            aiEnabled: true,
-            isActive: true,
 
-            location: true,
-            latitude: true,
-            longitude: true,
 
-            ipAddress: true,
-            port: true,
 
-            resolution: true,
-            fps: true,
-            codec: true,
 
-            lastCheckedAt: true,
-            lastSeenAt: true,
+    const [
+      stationSetting,
+      cameras,
+      total
 
-            createdAt: true,
-            updatedAt: true,
-          },
-        }),
+    ] = await Promise.all([
 
-        prisma.camera.count({
-          where,
-        }),
-      ]);
+
+
+      // =========================
+      // STATION AI CONFIG
+      // =========================
+
+      prisma.stationSetting.findUnique({
+
+        where:{
+          stationId
+        },
+
+        select:{
+
+          queueZone:true,
+
+          thresholdLow:true,
+
+          thresholdMedium:true,
+
+          thresholdHigh:true,
+
+          thresholdCritical:true,
+
+          maxQueueCapacity:true,
+
+          minFuelRequestLiters:true
+
+        }
+
+      }),
+
+
+
+
+
+      // =========================
+      // AI CAMERAS
+      // =========================
+
+      prisma.camera.findMany({
+
+        where,
+
+
+        skip,
+
+        take:limit,
+
+
+        orderBy:{
+          createdAt:"desc"
+        },
+
+
+
+        select:{
+
+
+          id:true,
+
+
+          stationId:true,
+
+
+          name:true,
+
+
+
+          // CONNECTION
+
+          protocol:true,
+
+          host:true,
+
+          port:true,
+
+          path:true,
+
+          authType:true,
+
+
+
+          // STATUS
+
+          status:true,
+
+          isActive:true,
+
+
+
+          // AI
+
+          aiEnabled:true,
+
+
+
+          // LOCATION
+
+          location:true,
+
+          latitude:true,
+
+          longitude:true,
+
+
+
+          // STREAM
+
+          resolution:true,
+
+          fps:true,
+
+          codec:true,
+
+
+
+          lastCheckedAt:true,
+
+          lastSeenAt:true,
+
+
+          createdAt:true,
+
+          updatedAt:true
+
+        }
+
+      }),
+
+
+
+
+      prisma.camera.count({
+
+        where
+
+      })
+
+
+
+    ]);
+
+
+
+
+
 
     return res.status(200).json({
-      success: true,
-      message: "Station AI cameras loaded successfully",
 
-      data: {
-        queueZone: stationSetting?.queueZone ?? null,
-        cameras,
+      success:true,
+
+      message:"Station AI cameras loaded successfully",
+
+
+
+      data:{
+
+        queueZone:
+            stationSetting?.queueZone ?? null,
+        cameras
+
+
       },
 
-      meta: {
+
+
+      meta:{
+
         total,
+
         page,
+
         limit,
-        totalPages: Math.ceil(total / limit),
-      },
+
+        totalPages:
+          Math.ceil(total / limit)
+
+      }
+
+
     });
-  } catch (error) {
+
+
+
+  }
+  catch(error){
+
     return handleError(
       res,
       error,
       "Failed to load station AI cameras"
     );
-  }
-};
 
+  }
+
+};
 export const updateQueueZone = async (req: Request, res: Response) => {
   try {
     console.log("📥 [QUEUE ZONE REQUEST RECEIVED]");
@@ -795,4 +1384,417 @@ export const updateQueueZone = async (req: Request, res: Response) => {
       },
     });
   }
+};
+
+
+/* =========================================================
+   STREAM PROXY (video passthrough)
+
+   - HTTP/MJPEG:
+     Fetches camera stream server-side using Basic Auth header
+     and pipes MJPEG to browser.
+
+   - RTSP:
+     Uses ffmpeg to transcode RTSP into MJPEG.
+
+   Credentials never reach the browser.
+========================================================= */
+export const streamCameraProxy = async (
+  req: Request,
+  res: Response
+) => {
+
+  const id = Array.isArray(req.params.id)
+    ? req.params.id[0]
+    : req.params.id;
+
+
+  let clientClosed = false;
+
+
+  req.on("close", () => {
+    clientClosed = true;
+  });
+
+
+  try {
+
+    const camera =
+      await prisma.camera.findUnique({
+        where:{
+          id
+        }
+      });
+
+
+    if (!camera) {
+
+      return res.status(404).json({
+        success:false,
+        message:"Camera not found",
+      });
+
+    }
+
+
+    if (!camera.isActive) {
+
+      return res.status(409).json({
+        success:false,
+        message:"Camera is disabled",
+      });
+
+    }
+
+
+
+    /* -----------------------------
+       DECRYPT CAMERA PASSWORD
+    ------------------------------ */
+
+    let password = "";
+
+    if (camera.passwordEncrypted) {
+      password =
+        decrypt(camera.passwordEncrypted);
+    }
+
+
+
+    const protocol =
+      camera.protocol.toLowerCase();
+
+
+
+    /*
+      Clean URL without credentials.
+
+      Example:
+      http://192.168.1.100:8080/video
+
+      NOT:
+      http://user:pass@192.168.1.100/video
+    */
+    const streamUrl =
+      `${protocol}://${camera.host}:${camera.port}${camera.path}`;
+
+
+
+    const isHttpStream =
+      protocol === "http" ||
+      protocol === "https";
+
+
+
+    const isMjpeg =
+      camera.path.toLowerCase().includes("mjpeg") ||
+      camera.path.toLowerCase().includes("multipart") ||
+      camera.path.toLowerCase().includes("/video");
+
+
+
+    /*
+      HTTP CAMERA AUTH HEADER
+
+      Converts:
+
+      username:password
+
+      into:
+
+      Authorization:
+      Basic base64(username:password)
+    */
+
+    const headers: Record<string,string> = {};
+
+
+    if (
+      camera.username &&
+      password
+    ) {
+
+      headers.Authorization =
+        `Basic ${
+          Buffer
+            .from(
+              `${camera.username}:${password}`
+            )
+            .toString("base64")
+        }`;
+
+    }
+
+
+
+
+    /* =================================================
+       HTTP MJPEG STREAM
+    ================================================= */
+
+    if (
+      isHttpStream &&
+      isMjpeg
+    ) {
+
+
+      const upstream =
+        await fetch(
+          streamUrl,
+          {
+            headers,
+          }
+        );
+
+
+
+      if (
+        !upstream.ok ||
+        !upstream.body
+      ) {
+
+        return res.status(502).json({
+
+          success:false,
+
+          message:
+            "Camera did not return a stream",
+
+        });
+
+      }
+
+
+
+      res.setHeader(
+        "Content-Type",
+        upstream.headers.get(
+          "content-type"
+        )
+        ??
+        "multipart/x-mixed-replace"
+      );
+
+
+      res.setHeader(
+        "Cache-Control",
+        "no-store, no-cache, must-revalidate"
+      );
+
+
+      res.setHeader(
+        "Connection",
+        "keep-alive"
+      );
+
+
+
+      const reader =
+        upstream.body.getReader();
+
+
+
+      try {
+
+
+        while(!clientClosed) {
+
+
+          const {
+            done,
+            value
+
+          } =
+          await reader.read();
+
+
+
+          if(done)
+            break;
+
+
+
+          res.write(value);
+
+        }
+
+
+      } finally {
+
+
+        reader.releaseLock();
+
+
+        if(!res.writableEnded){
+          res.end();
+        }
+
+      }
+
+
+
+      return;
+
+    }
+
+
+
+
+    /* =================================================
+       RTSP CAMERA -> FFMPEG -> MJPEG
+    ================================================= */
+
+
+    /*
+      RTSP keeps credentials because ffmpeg accepts:
+
+      rtsp://user:password@host/path
+    */
+
+    let ffmpegUrl = streamUrl;
+
+
+    if (
+      protocol === "rtsp" &&
+      camera.username &&
+      password
+    ) {
+
+      ffmpegUrl =
+        `rtsp://${camera.username}:${password}` +
+        `@${camera.host}:${camera.port}${camera.path}`;
+
+    }
+
+
+
+    res.setHeader(
+      "Content-Type",
+      "multipart/x-mixed-replace; boundary=ffmpeg"
+    );
+
+
+    res.setHeader(
+      "Cache-Control",
+      "no-store"
+    );
+
+
+
+    const command =
+      ffmpeg(ffmpegUrl)
+
+      .inputOptions(
+        protocol === "rtsp"
+          ? [
+              "-rtsp_transport",
+              "tcp"
+            ]
+          : []
+      )
+
+
+      .outputOptions([
+
+        "-c:v",
+        "mjpeg",
+
+        "-f",
+        "mpjpeg",
+
+        "-q:v",
+        "5",
+
+        "-r",
+        "10",
+
+      ])
+
+
+      .on(
+        "error",
+        (err)=>{
+
+
+          if(clientClosed)
+            return;
+
+
+
+          console.error(
+            "Camera stream proxy ffmpeg error:",
+            err.message
+          );
+
+
+
+          if(!res.headersSent){
+
+            res.status(502).json({
+
+              success:false,
+
+              message:
+                "Failed to open camera stream",
+
+            });
+
+          } else {
+
+            res.end();
+
+          }
+
+
+        }
+      );
+
+
+
+    req.on(
+      "close",
+      ()=>{
+
+        command.kill(
+          "SIGKILL"
+        );
+
+      }
+    );
+
+
+
+    command.pipe(
+      res,
+      {
+        end:true
+      }
+    );
+
+
+
+  } catch(error) {
+
+
+    console.error(
+      "Camera Controller Error:",
+      error
+    );
+
+
+    if(!res.headersSent){
+
+      return handleError(
+        res,
+        error,
+        "Failed to proxy camera stream"
+      );
+
+    }
+
+
+    res.end();
+
+  }
+
 };

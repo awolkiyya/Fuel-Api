@@ -6,10 +6,12 @@ import upload from "../../middlewares/upload.middleware";
 const router = Router();
 
 /**
- * =========================
- * CREATE LICENSE
- * =========================
+ * =====================================
+ * USER ROUTES
+ * =====================================
  */
+
+// Create new license
 router.post(
   "/",
   authMiddleware,
@@ -17,23 +19,14 @@ router.post(
   BusinessLicenseController.create
 );
 
-/**
- * =========================
- * GET MY LICENSE
- * =========================
- */
+// Get my license
 router.get(
   "/me",
   authMiddleware,
   BusinessLicenseController.getMyLicense
 );
 
-/**
- * =========================
- * UPDATE LICENSE (FULL EDIT)
- * =========================
- * - can update licenseNumber + expiryDate + optional file
- */
+// Update my license
 router.post(
   "/me",
   authMiddleware,
@@ -41,16 +34,46 @@ router.post(
   BusinessLicenseController.update
 );
 
-/**
- * =========================
- * RENEW LICENSE (DOCUMENT ONLY)
- * =========================
- */
+// Submit renewal request
 router.post(
   "/me/renew",
   authMiddleware,
   upload.single("document"),
   BusinessLicenseController.renewRequest
+);
+
+/**
+ * =====================================
+ * ADMIN ROUTES
+ * =====================================
+ */
+
+// List all licenses
+router.get(
+  "/admin",
+  authMiddleware,
+  BusinessLicenseController.getAll
+);
+
+// Get single license
+router.get(
+  "/admin/:id",
+  authMiddleware,
+  BusinessLicenseController.getById
+);
+
+// Approve
+router.patch(
+  "/admin/:id/approve",
+  authMiddleware,
+  BusinessLicenseController.approve
+);
+
+// Reject
+router.patch(
+  "/admin/:id/reject",
+  authMiddleware,
+  BusinessLicenseController.reject
 );
 
 export default router;

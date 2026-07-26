@@ -2,49 +2,92 @@ import prisma from "../../config/db";
 import { CreateUserDTO, UpdateUserDTO } from "./users.types";
 import { Prisma, UserRole, UserStatus } from "@prisma/client";
 
+
 /* =============================
    WHERE BUILDER (TYPE SAFE)
 ============================= */
 const buildUserWhere = ({
   search,
   status,
+  role,
   excludeUserId,
 }: {
   search?: string;
   status?: UserStatus;
+  role?: UserRole;
   excludeUserId?: string;
 }): Prisma.UserWhereInput => {
+
+
   const where: Prisma.UserWhereInput = {};
 
+
+  // exclude drivers from admin user list
   where.role = {
     not: UserRole.driver,
   };
 
+
+  // exclude current logged user
   if (excludeUserId) {
     where.id = {
       not: excludeUserId,
     };
   }
 
+
+  // smart search
   if (search) {
     where.OR = [
-      { full_name: { contains: search, mode: "insensitive" } },
-      { email: { contains: search, mode: "insensitive" } },
-      { phone: { contains: search, mode: "insensitive" } },
+
+      {
+        full_name:{
+          contains:search,
+          mode:"insensitive"
+        }
+      },
+
+      {
+        email:{
+          contains:search,
+          mode:"insensitive"
+        }
+      },
+
+      {
+        phone:{
+          contains:search,
+          mode:"insensitive"
+        }
+      }
+
     ];
   }
 
-  if (status) {
+
+  // status filter
+  if(status){
     where.status = status;
   }
 
+
+  // role filter
+  if(role){
+    where.role = role;
+  }
+
+
   return where;
 };
+
+
 
 /* =============================
    REPOSITORY
 ============================= */
 export const userRepository = {
+
+
   /* -----------------------------
      FIND ALL USERS
   ------------------------------ */
@@ -53,67 +96,118 @@ export const userRepository = {
     limit,
     search,
     status,
+    role,
     excludeUserId,
-  }: {
-    skip: number;
-    limit: number;
-    search?: string;
-    status?: UserStatus;
-    excludeUserId?: string;
-  }) => {
+
+  }:{
+
+    skip:number;
+    limit:number;
+    search?:string;
+    status?:UserStatus;
+    role?:UserRole;
+    excludeUserId?:string;
+
+  })=>{
+
+
     const where = buildUserWhere({
+
       search,
       status,
+      role,
       excludeUserId,
+
     });
+
 
     return prisma.user.findMany({
+
       where,
+
       skip,
-      take: limit,
-      orderBy: {
-        createdAt: "desc",
+
+      take:limit,
+
+
+      orderBy:{
+        createdAt:"desc"
       },
-      select: {
-        id: true,
-        full_name: true,
-        phone: true,
-        email: true,
-        profile_image: true,
-        gender: true,
-        role: true,
-        status: true,
-        createdAt: true,
-        managedStation: {
-          select: {
-            id: true,
-            name: true,
-          },
-        },
-      },
+
+
+      select:{
+
+        id:true,
+
+        full_name:true,
+
+        phone:true,
+
+        email:true,
+
+        profile_image:true,
+
+        gender:true,
+
+        role:true,
+
+        status:true,
+
+        createdAt:true,
+
+
+        managedStation:{
+          select:{
+            id:true,
+            name:true
+          }
+        }
+
+      }
+
     });
+
   },
+
+
 
   /* -----------------------------
-     COUNT (PAGINATION)
+     COUNT
   ------------------------------ */
   count: async ({
+
     search,
     status,
+    role,
     excludeUserId,
-  }: {
-    search?: string;
-    status?: UserStatus;
-    excludeUserId?: string;
-  }) => {
+
+  }:{
+
+    search?:string;
+    status?:UserStatus;
+    role?:UserRole;
+    excludeUserId?:string;
+
+  })=>{
+
+
     const where = buildUserWhere({
+
       search,
       status,
+      role,
       excludeUserId,
+
     });
 
-    return prisma.user.count({ where });
+
+    return prisma.user.count({
+      where
+    });
+
   },
+
+
 
   /* -----------------------------
      FIND BY ID

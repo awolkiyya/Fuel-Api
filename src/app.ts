@@ -52,7 +52,7 @@ app.get("/health", (_req, res) => {
 app.use(
   "/uploads",
   express.static(
-    path.join(process.cwd(), "uploads")
+    path.join(__dirname, "../uploads")
   )
 );
 

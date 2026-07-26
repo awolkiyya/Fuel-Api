@@ -766,7 +766,7 @@ export const createDispenser = async (
       data: {
         stationId,
         number: parsedNumber,
-        status: "active",
+        status: "ACTIVE",
       },
     })
 
@@ -814,7 +814,7 @@ export const toggleDispenserStatus = async (
       where: { id: dispenserId },
       data: {
         status:
-          dispenser.status === "active" ? "inactive" : "active",
+          dispenser.status === "ACTIVE" ? "INACTIVE" : "ACTIVE",
       },
     });
 
@@ -835,94 +835,245 @@ export const addNozzle = async (
   req: Request<{ id: string; pumpId: string }>,
   res: Response
 ) => {
+
   try {
+
     const stationId = req.params.id
     const dispenserId = req.params.pumpId
-    const { number, fuelType } = req.body
 
-    if (!number || !fuelType) {
+
+    const {
+      number,
+      fuelTypeId
+    } = req.body
+
+
+
+    if (!number || !fuelTypeId) {
+
       return res.status(400).json({
-        success: false,
-        message: "number and fuelType are required",
+
+        success:false,
+
+        message:
+          "number and fuelTypeId are required"
+
       })
+
     }
 
-    const station = await stationRepository.findById(stationId)
+
+
+    const station =
+      await stationRepository.findById(stationId)
+
+
 
     if (!station) {
+
       return res.status(404).json({
-        success: false,
-        message: "Station not found",
+
+        success:false,
+
+        message:"Station not found"
+
       })
+
     }
 
-    const dispenser = await prisma.dispenser.findUnique({
-      where: { id: dispenserId },
-    })
 
-    if (!dispenser) {
-      return res.status(404).json({
-        success: false,
-        message: "Dispenser not found",
+
+
+
+    const dispenser =
+      await prisma.dispenser.findUnique({
+
+        where:{
+          id:dispenserId
+        }
+
       })
+
+
+
+    if(!dispenser){
+
+      return res.status(404).json({
+
+        success:false,
+
+        message:"Dispenser not found"
+
+      })
+
     }
+
+
+
+
 
     // ======================================
-    // 🔥 DUPLICATION CHECK (IMPORTANT)
+    // VERIFY FUEL TYPE EXISTS
     // ======================================
-    const existingNozzle = await prisma.nozzle.findFirst({
-      where: {
-        dispenserId,
-        number: Number(number),
-      },
-    })
 
-    if (existingNozzle) {
-      return res.status(409).json({
-        success: false,
-        message: `Nozzle number ${number} already exists for this dispenser`,
+    const fuelType =
+      await prisma.fuelType.findUnique({
+
+        where:{
+          id:fuelTypeId
+        }
+
       })
+
+
+    if(!fuelType){
+
+      return res.status(404).json({
+
+        success:false,
+
+        message:"Fuel type not found"
+
+      })
+
     }
 
-    // OPTIONAL: prevent duplicate fuel type per dispenser
-    const duplicateFuelType = await prisma.nozzle.findFirst({
-      where: {
-        dispenserId,
-        fuelType,
-      },
-    })
 
-    if (duplicateFuelType) {
-      return res.status(409).json({
-        success: false,
-        message: `Fuel type ${fuelType} already assigned to this dispenser`,
+
+
+
+    // ======================================
+    // DUPLICATE NOZZLE NUMBER
+    // ======================================
+
+    const existingNozzle =
+      await prisma.nozzle.findFirst({
+
+        where:{
+
+          dispenserId,
+
+          number:Number(number)
+
+        }
+
       })
+
+
+
+    if(existingNozzle){
+
+      return res.status(409).json({
+
+        success:false,
+
+        message:
+        `Nozzle number ${number} already exists`
+
+      })
+
     }
+
+
+
+
+
+    // ======================================
+    // DUPLICATE FUEL TYPE
+    // ======================================
+
+    const duplicateFuelType =
+      await prisma.nozzle.findFirst({
+
+        where:{
+
+          dispenserId,
+
+          fuelTypeId
+
+        }
+
+      })
+
+
+
+    if(duplicateFuelType){
+
+      return res.status(409).json({
+
+        success:false,
+
+        message:
+        `${fuelType.name} already assigned`
+
+      })
+
+    }
+
+
+
+
 
     // ======================================
     // CREATE NOZZLE
     // ======================================
-    const nozzle = await prisma.nozzle.create({
-      data: {
-        dispenserId,
-        number: Number(number),
-        fuelType,
-        status: "active",
-      },
-    })
+
+    const nozzle =
+      await prisma.nozzle.create({
+
+        data:{
+
+          dispenserId,
+
+          number:Number(number),
+
+          fuelTypeId,
+
+          status:"ACTIVE"
+
+        },
+
+        include:{
+
+          fuelType:true
+
+        }
+
+      })
+
+
+
+
 
     return res.status(201).json({
-      success: true,
-      message: "Nozzle added successfully",
-      data: nozzle,
+
+      success:true,
+
+      message:"Nozzle added successfully",
+
+      data:nozzle
+
     })
-  } catch (err: any) {
+
+
+
+  } catch(err:any){
+
+
     return res.status(500).json({
-      success: false,
-      message: err.message || "Internal server error",
+
+      success:false,
+
+      message:
+      err.message || "Internal server error"
+
     })
+
+
   }
+
 }
+
 export const toggleNozzleStatus = async (
   req: Request<{ id: string; dispenserId: string; nozzleId: string }>,
   res: Response
@@ -954,7 +1105,7 @@ export const toggleNozzleStatus = async (
       where: { id: nozzleId },
       data: {
         status:
-          nozzle.status === "active" ? "maintenance" : "active",
+          nozzle.status === "ACTIVE" ? "MAINTENANCE" : "ACTIVE",
       },
     });
 
@@ -977,81 +1128,141 @@ export const getStationNozzles = async (
   res: Response
 ): Promise<void> => {
   try {
-    const stationId = Array.isArray(req.params.id)
-    ? req.params.id[0]
-    : req.params.id;
 
-    const fuelType =
-      typeof req.query.fuelType === "string"
-        ? req.query.fuelType
+    const stationId = Array.isArray(req.params.id)
+      ? req.params.id[0]
+      : req.params.id;
+
+
+    const fuelTypeId =
+      typeof req.query.fuelTypeId === "string"
+        ? req.query.fuelTypeId
         : undefined;
 
-    const page = Math.max(Number(req.query.page) || 1, 1);
+
+
+    const page = Math.max(
+      Number(req.query.page) || 1,
+      1
+    );
+
 
     const perPage = Math.min(
       Math.max(Number(req.query.perPage) || 20, 1),
       100
     );
 
+
+
     const where: Prisma.NozzleWhereInput = {
-      dispenser: {
+
+      dispenser:{
         stationId,
       },
 
-      ...(fuelType && {
-        fuelType,
-      }),
+
+      ...(fuelTypeId && {
+        fuelTypeId,
+      })
+
     };
 
-    const [total, nozzles] = await prisma.$transaction([
-      prisma.nozzle.count({
-        where,
-      }),
 
-      prisma.nozzle.findMany({
-        where,
 
-        include: {
-          dispenser: {
-            select: {
-              id: true,
-              number: true,
-              status: true,
-              stationId: true,
+    const [total,nozzles] =
+      await prisma.$transaction([
+
+
+
+        prisma.nozzle.count({
+          where,
+        }),
+
+
+
+        prisma.nozzle.findMany({
+
+          where,
+
+
+          include:{
+
+
+            // 🔥 required for nozzle.fuelType.name
+            fuelType:{
+              select:{
+                id:true,
+                name:true,
+                price:true,
+                status:true,
+              }
             },
+
+
+            dispenser:{
+              select:{
+                id:true,
+                number:true,
+                status:true,
+                stationId:true,
+              }
+            }
+
           },
-        },
 
-        skip: (page - 1) * perPage,
-        take: perPage,
 
-        orderBy: {
-          createdAt: "desc",
-        },
-      }),
-    ]);
+          skip:
+            (page - 1) * perPage,
+
+
+          take:
+            perPage,
+
+
+        })
+
+      ]);
+
+
 
     res.status(200).json({
-      success: true,
-      data: nozzles,
-      meta: {
+
+      success:true,
+
+      data:nozzles,
+
+
+      meta:{
         page,
         perPage,
         total,
-        totalPages: Math.ceil(total / perPage),
-      },
+        totalPages:
+          Math.ceil(total/perPage),
+      }
+
     });
 
-  } catch (error) {
-    console.error("Get station nozzles:", error);
+
+  } catch(error:any){
+
+    console.error(
+      "Get station nozzles:",
+      error
+    );
+
 
     res.status(500).json({
-      success: false,
-      message: "Failed to fetch station nozzles.",
+
+      success:false,
+
+      message:
+        error.message ||
+        "Failed to fetch station nozzles."
+
     });
+
   }
 };
-
 export const updateQueueZone = async (req: Request, res: Response) => {
   try {
     const stationId = Array.isArray(req.params.stationId)
@@ -1176,8 +1387,8 @@ export const getStationFuelConfig = async (req: Request, res: Response) => {
 
         isActive: ft.isActive,
 
-        min: ft.minRequestLiters,
-        max: ft.maxRequestLiters,
+        minRequestLiters: ft.minRequestLiters,
+        maxRequestLiters: ft.maxRequestLiters,
         maxCapacity: ft.maxCapacity,
 
         // ✅ CLEAN PRICE RESOLUTION
@@ -1214,162 +1425,397 @@ export const updateStationFuelConfig = async (
   res: Response
 ) => {
   try {
+    console.log("\n========== UPDATE FUEL CONFIG ==========");
+
+    console.log("BODY:");
+    console.dir(req.body, {
+      depth: 10,
+    });
+
+
     const rawId = req.params.id;
 
-const stationId =
-  typeof rawId === "string"
-    ? rawId
-    : Array.isArray(rawId)
-    ? rawId[0]
-    : undefined;
 
-if (!stationId) {
-  return res.status(400).json({
-    success: false,
-    message: "Invalid station id",
-  });
-}
+    const stationId =
+      typeof rawId === "string"
+        ? rawId
+        : Array.isArray(rawId)
+        ? rawId[0]
+        : undefined;
+
+
+    console.log("STATION ID:", stationId);
+
+
+
+    if (!stationId) {
+      return res.status(400).json({
+        success:false,
+        message:"Invalid station id",
+      });
+    }
+
+
 
     const fuelTypes = req.body?.fuelTypes;
 
+
+
+    console.log(
+      "FUEL TYPES COUNT:",
+      Array.isArray(fuelTypes)
+        ? fuelTypes.length
+        : "NOT ARRAY"
+    );
+
+
+
     if (!Array.isArray(fuelTypes)) {
       return res.status(400).json({
-        success: false,
-        message: "fuelTypes must be an array",
+        success:false,
+        message:"fuelTypes must be an array",
       });
     }
 
-    if (fuelTypes.length === 0) {
-      return res.status(400).json({
-        success: false,
-        message: "No fuel configuration provided",
-      });
-    }
 
-    const system = await prisma.systemSettings.findUnique({
-      where: {
-        id: "global",
-      },
-    });
+
+    const system =
+      await prisma.systemSettings.findUnique({
+        where:{
+          id:"global",
+        },
+      });
+
+
+
+    console.log(
+      "SYSTEM SETTINGS:",
+      system
+    );
+
+
 
     const priceControlMode =
       system?.priceControlMode ?? "FIXED";
 
+
+
     const allowPriceOverride =
       priceControlMode === "OVERRIDE";
 
-    const updated: string[] = [];
 
-    await prisma.$transaction(async (tx) => {
-      for (const fuel of fuelTypes) {
-        const fuelTypeId = fuel?.fuelTypeId;
 
-        if (!fuelTypeId) continue;
+    console.log({
+      priceControlMode,
+      allowPriceOverride,
+    });
 
-        const minRequestLiters = Math.max(
-          0,
-          Number(fuel.min ?? 0)
-        );
 
-        const maxRequestLiters = Math.max(
-          minRequestLiters,
-          Number(fuel.max ?? minRequestLiters)
-        );
 
-        const maxCapacity = Math.max(
-          0,
-          Number(fuel.maxCapacity ?? 0)
-        );
+    const updated:string[] = [];
 
-        const isActive = Boolean(fuel.isActive);
 
-        // ==================================================
-        // STATION FUEL TYPE
-        // SAFE:
-        // - NO DELETE
-        // - NO DISCONNECT
-        // - NO RELATION REPLACEMENT
-        // ==================================================
-        await tx.stationFuelType.upsert({
-          where: {
-            stationId_fuelTypeId: {
-              stationId,
+
+
+    await prisma.$transaction(
+      async(tx)=>{
+
+
+        for(const fuel of fuelTypes){
+
+
+
+          console.log(
+            "\nPROCESSING FUEL:",
+            fuel
+          );
+
+
+
+          const fuelTypeId =
+            fuel.fuelTypeId;
+
+
+
+          if(!fuelTypeId){
+
+            console.log(
+              "SKIPPED: missing fuelTypeId"
+            );
+
+            continue;
+          }
+
+
+
+
+
+          const minRequestLiters =
+            Math.max(
+              0,
+              Number(
+                fuel.minRequestLiters ?? 1
+              )
+            );
+
+
+
+          const maxRequestLiters =
+            Math.max(
+              minRequestLiters,
+              Number(
+                fuel.maxRequestLiters ?? 100
+              )
+            );
+
+
+
+          const maxCapacity =
+            Math.max(
+              0,
+              Number(
+                fuel.maxCapacity ?? 0
+              )
+            );
+
+
+
+          const isActive =
+            Boolean(
+              fuel.isActive
+            );
+
+
+
+          console.log(
+            "FINAL VALUES:",
+            {
               fuelTypeId,
-            },
-          },
+              minRequestLiters,
+              maxRequestLiters,
+              maxCapacity,
+              isActive,
+            }
+          );
 
-          update: {
-            isActive,
-            minRequestLiters,
-            maxRequestLiters,
-            maxCapacity,
-          },
 
-          create: {
-            stationId,
-            fuelTypeId,
-            isActive,
-            minRequestLiters,
-            maxRequestLiters,
-            maxCapacity,
-          },
-        });
 
-        // ==================================================
-        // STATION PRICE OVERRIDE
-        // ==================================================
-        if (
-          allowPriceOverride &&
-          Number.isFinite(Number(fuel.price))
-        ) {
-          await tx.stationFuelPrice.upsert({
-            where: {
-              stationId_fuelTypeId: {
-                stationId,
-                fuelTypeId,
+
+          const result =
+            await tx.stationFuelType.upsert({
+
+              where:{
+                stationId_fuelTypeId:{
+                  stationId,
+                  fuelTypeId,
+                },
               },
-            },
 
-            update: {
-              pricePerLiter: Number(fuel.price),
-              isOverride: true,
-              effectiveFrom: new Date(),
-            },
 
-            create: {
-              stationId,
-              fuelTypeId,
-              pricePerLiter: Number(fuel.price),
-              isOverride: true,
-            },
-          });
+              update:{
+
+                minRequestLiters,
+
+                maxRequestLiters,
+
+                maxCapacity,
+
+                isActive,
+
+              },
+
+
+              create:{
+
+                stationId,
+
+                fuelTypeId,
+
+                minRequestLiters,
+
+                maxRequestLiters,
+
+                maxCapacity,
+
+                isActive,
+
+              },
+
+
+            });
+
+
+
+          console.log(
+            "UPDATED STATION FUEL:",
+            result
+          );
+
+
+
+          /*
+          PRICE UPDATE
+          */
+
+          if(
+            allowPriceOverride &&
+            Number.isFinite(
+              Number(fuel.price)
+            ) &&
+            Number(fuel.price)>=0
+          ){
+
+            const price =
+              Number(
+                fuel.price
+              );
+
+
+
+            console.log(
+              "UPDATING PRICE:",
+              {
+                fuelTypeId,
+                price,
+              }
+            );
+
+
+
+            await tx.stationFuelPrice.upsert({
+
+              where:{
+                stationId_fuelTypeId:{
+                  stationId,
+                  fuelTypeId,
+                },
+              },
+
+
+              update:{
+
+                pricePerLiter:price,
+
+                isOverride:true,
+
+                effectiveFrom:
+                  new Date(),
+
+              },
+
+
+              create:{
+
+                stationId,
+
+                fuelTypeId,
+
+                pricePerLiter:price,
+
+                isOverride:true,
+
+              },
+
+
+            });
+
+
+          }
+          else{
+
+            console.log(
+              "PRICE NOT UPDATED",
+              {
+                allowPriceOverride,
+                price:fuel.price
+              }
+            );
+
+          }
+
+
+
+          updated.push(
+            fuelTypeId
+          );
+
         }
 
-        updated.push(fuelTypeId);
       }
-    });
+    );
+
+
+
+    /*
+      RETURN FRESH DATA
+    */
+
+    const fresh =
+      await prisma.station.findUnique({
+
+        where:{
+          id:stationId,
+        },
+
+
+        include:{
+          fuelTypes:{
+            include:{
+              fuelType:true,
+            },
+          },
+        },
+
+      });
+
+
+
+    console.log(
+      "FINAL DATABASE STATE:"
+    );
+
+    console.dir(
+      fresh?.fuelTypes,
+      {
+        depth:10
+      }
+    );
+
+
 
     return res.status(200).json({
-      success: true,
-      message: "Fuel configuration updated successfully",
-      data: {
-        stationId,
-        updatedCount: updated.length,
-        updatedFuelTypes: updated,
-      },
+
+      success:true,
+
+      message:
+        "Fuel configuration updated successfully",
+
+      data:fresh,
+
     });
-  } catch (error) {
+
+
+
+  } catch(error){
+
     console.error(
       "updateStationFuelConfig error:",
       error
     );
 
+
     return res.status(500).json({
-      success: false,
-      message: "Failed to update fuel configuration",
-      error: {
-        code: "INTERNAL_ERROR",
+
+      success:false,
+
+      message:
+        "Failed to update fuel configuration",
+
+      error:{
+        code:"INTERNAL_ERROR",
       },
+
     });
+
   }
 };

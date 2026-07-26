@@ -6,7 +6,7 @@ import userRoutes from "../modules/users/users.routes";
 import driverRoutes from "../modules/drivers/drivers.routes";
 import vehicleRoutes from "../modules/vehicles/vehicles.routes";
 import commenRoutes from "../modules/commens/commen.routes";
-import stationRoutes from "../modules/stations/stations.routes";
+import stationRoutes from "../modules/stations/routes/stations.routes";
 import systemRoutes from "../modules/system/system.routes";
 import cameraRoutes from "../modules/cameras/cameras.route";
 import publicSationsRoutes from "../modules/publics/routes/stations.route";
@@ -16,7 +16,7 @@ import publicLicenseRoutes from "../modules/publics/routes/publicLicenseRoutes";
 
 import businessLicenseRoutes from "../modules/business-license/businessLicense.routes";
 
-
+import aiRoutes from "../modules/ai/ai.routes";
 
 
 const router = Router();
@@ -81,57 +81,12 @@ router.use("/cameras", cameraRoutes);
 console.log("🧭 /license routes loaded");
 router.use("/license", businessLicenseRoutes);
 
-
-// station side and admin side 
-// router.use("/fuel-requests", fuelRequestRoutes);
-// GET    /api/v1/fuel-requests
-// GET    /api/v1/fuel-requests/:id
-
-// PATCH  /api/v1/fuel-requests/:id/approve
-// PATCH  /api/v1/fuel-requests/:id/reject
-
-// PATCH  /api/v1/fuel-requests/:id/assign-operator
-// PATCH  /api/v1/fuel-requests/:id/assign-nozzle
-
-// PATCH  /api/v1/fuel-requests/:id/start
-// PATCH  /api/v1/fuel-requests/:id/complete
-
-
-
 // =========================
 // AI MODULE
 // =========================
-console.log("🧭 /ai routes loaded");
-// router.use("/ai", commenRoutes);  // /stations/ai-config to return for the ai the all config infomation for the all station
-// app.post("/ai/update", async (req, res) => {
-//     const data = req.body;
-  
-//     await db.collection("station_ai").updateOne(
-//       { station_id: data.station_id },
-//       { $set: data },
-//       { upsert: true }
-//     );
-  
-//     res.json({ success: true });
-//   });
-// GET /stations/:id/config
-// POST /ai/result
-// GET /stations/:id/live
 
-// [
-//     {
-//       "id": "S1",
-//       "cameraUrl": "rtsp://192.168.1.10/stream",
-//       "roi": [100, 200, 800, 600],
-//       "thresholds": { "low": 3, "medium": 7 }
-//     },
-//     {
-//       "id": "S2",
-//       "cameraUrl": "rtsp://192.168.1.11/stream",
-//       "roi": [120, 220, 700, 580],
-//       "thresholds": { "low": 2, "medium": 5 }
-//     }
-//   ]
+console.log("🧭 /ai routes loaded");
+router.use("/ai",aiRoutes);
 
 // here is all public user side routes 
 // camera related route
@@ -146,3 +101,21 @@ router.use("/public/license", publicLicenseRoutes);
 
 
 export default router;
+
+
+
+
+
+// station side and admin side 
+// router.use("/fuel-requests", fuelRequestRoutes);
+// GET    /api/v1/fuel-requests
+// GET    /api/v1/fuel-requests/:id
+
+// PATCH  /api/v1/fuel-requests/:id/approve
+// PATCH  /api/v1/fuel-requests/:id/reject
+
+// PATCH  /api/v1/fuel-requests/:id/assign-operator
+// PATCH  /api/v1/fuel-requests/:id/assign-nozzle
+
+// PATCH  /api/v1/fuel-requests/:id/start
+// PATCH  /api/v1/fuel-requests/:id/complete

@@ -110,53 +110,56 @@ export const login = async (
   res: Response
 ) => {
 
-
   try {
 
+    const result = await loginUser(req.body);
 
-    const result =
-      await loginUser(
-        req.body
-      );
 
+    // Store token in secure HttpOnly cookie
+    res.cookie(
+      "accessToken",
+      result.token,
+      {
+        httpOnly: true,
+        secure: process.env.NODE_ENV === "production",
+        sameSite: "lax",
+        maxAge: 1000 * 60 * 60 * 24, // 1 day
+        path: "/",
+      }
+    );
 
 
     return sendResponse(res,{
 
       statusCode:200,
 
-      message:
-        "Login successful",
-
+      message:"Login successful",
 
       data:{
 
-        user:
-          result.user,
+        user: result.user,
 
-
-        accessToken:
-          result.token,
+        // Keep returning for existing frontend logic
+        accessToken: result.token,
 
       },
 
-
     });
 
 
+  } catch (error:any) {
 
-  }catch (error: any) {
     console.error("LOGIN ERROR:", error);
 
-    return sendError(res, {
-        statusCode: error.statusCode ?? 401,
-        message: error.message ?? "Invalid credentials",
-        code: "LOGIN_FAILED",
+    return sendError(res,{
+      statusCode:error.statusCode ?? 401,
+      message:error.message ?? "Invalid credentials",
+      code:"LOGIN_FAILED",
     });
-}
+
+  }
 
 };
-
 
 
 

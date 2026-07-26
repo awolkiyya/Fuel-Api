@@ -259,3 +259,134 @@ export const updateStaffPassword = async (req: Request, res: Response) => {
     })
   }
 }
+
+// ================= UPDATE STAFF PROFILE =================
+export const updateStaffProfile = async (
+  req: Request,
+  res: Response
+) => {
+
+  try {
+
+    const stationId = toString(req.params.id)
+
+    const userId = toString(req.params.userId)
+
+
+    const {
+      full_name,
+      phone,
+      email,
+      gender,
+    } = req.body
+
+
+
+    if (!stationId || !userId) {
+
+      return res.status(400).json({
+
+        success:false,
+
+        message:"Invalid stationId or userId"
+
+      })
+
+    }
+
+
+
+    // check staff belongs to this station
+    const existingUser =
+    await prisma.user.findFirst({
+
+      where:{
+
+        id:userId,
+
+        stationId,
+
+        role:"station_staff"
+
+      }
+
+    })
+
+
+
+    if(!existingUser){
+
+      return res.status(404).json({
+
+        success:false,
+
+        message:"Staff not found"
+
+      })
+
+    }
+
+
+
+    const updatedUser =
+    await prisma.user.update({
+
+      where:{
+
+        id:userId
+
+      },
+
+
+      data:{
+
+        full_name:
+        full_name ?? existingUser.full_name,
+
+
+        phone:
+        phone ?? existingUser.phone,
+
+
+        email:
+        email ?? existingUser.email,
+
+
+        gender:
+        gender ?? existingUser.gender
+
+      }
+
+    })
+
+
+
+    return res.status(200).json({
+
+      success:true,
+
+      message:"Staff profile updated successfully",
+
+      data:updatedUser
+
+    })
+
+
+  }
+  catch(error:any){
+
+
+    return res.status(500).json({
+
+      success:false,
+
+      message:"Failed to update staff profile",
+
+      error:error?.message
+
+    })
+
+
+  }
+
+}

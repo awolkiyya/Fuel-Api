@@ -79,10 +79,26 @@ export const stationRepository = {
           select: {
             id: true,
             name: true,
-            streamUrl: true,
-            type: true,
+            protocol: true,
+            host: true,
+            port: true,
+            path: true,
+            authType: true,
+            username: true,
             location: true,
+            latitude: true,
+            longitude: true,
             status: true,
+            lastSeenAt: true,
+            lastCheckedAt: true,
+            resolution: true,
+            fps: true,
+            codec: true,
+            aiEnabled: true,
+            isActive: true,
+            metadata: true,
+            createdAt: true,
+            updatedAt: true,
           },
         },
   
@@ -166,24 +182,55 @@ export const stationRepository = {
     })
   },
 
-  async updateFuelTypes(stationId: string, fuelTypes: any[]) {
-    return prisma.station.update({
-      where: { id: stationId },
-      data: {
-        fuelTypes: {
-          deleteMany: {}, // remove old config
+  async updateFuelTypes(
+    stationId: string,
+    fuelTypes: any[]
+  ) {
+    return prisma.$transaction(async (tx) => {
   
-          create: fuelTypes.map((f) => ({
+      for (const f of fuelTypes) {
+  
+        await tx.stationFuelType.upsert({
+  
+          where: {
+            stationId_fuelTypeId: {
+              stationId,
+              fuelTypeId: f.fuelTypeId,
+            },
+          },
+  
+          update: {
+            maxCapacity: f.maxCapacity,
+            isActive: f.isActive ?? true,
+          },
+  
+          create: {
+            stationId,
             fuelTypeId: f.fuelTypeId,
             maxCapacity: f.maxCapacity,
             isActive: f.isActive ?? true,
-          })),
+          },
+  
+        });
+  
+      }
+  
+  
+      return tx.station.findUnique({
+        where: {
+          id: stationId,
         },
-      },
-      include: {
-        fuelTypes: true,
-      },
-    })
+  
+        include: {
+          fuelTypes: {
+            include: {
+              fuelType: true,
+            },
+          },
+        },
+      });
+  
+    });
   },
     // =====================================================
   // FIND MANAGERS (PAGINATED)
@@ -347,12 +394,36 @@ export const stationRepository = {
   },
 
   findDispensersByStationId: async (stationId: string) => {
+
     return prisma.dispenser.findMany({
-      where: { stationId },
-      include: {
-        nozzles: true,
+  
+      where:{
+        stationId
       },
+  
+  
+      include:{
+  
+  
+        nozzles:{
+  
+  
+          include:{
+  
+  
+            fuelType:true
+  
+  
+          }
+  
+  
+        }
+  
+  
+      }
+  
     })
+  
   }
 
   // =====================================================

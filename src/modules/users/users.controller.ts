@@ -14,33 +14,63 @@ type IdParams = {
 // =====================================================
 export const getUsers = async (req: Request, res: Response) => {
   try {
+
     const { page, limit, skip } = getPagination(req.query);
 
-    const search = (req.query.search as string) || "";
-    const role = (req.query.role as string) || "";
-    const status = (req.query.status as string) || "";
 
-    const currentUserId = (req as any).user?.id;
+    const filters = {
+
+      search: String(req.query.search ?? "").trim(),
+
+      // normalize role
+      role: String(req.query.role ?? "")
+        .trim()
+        .toLowerCase(),
+
+
+      // normalize status for Prisma enum
+      status: String(req.query.status ?? "")
+        .trim()
+        .toUpperCase(),
+
+
+      currentUserId: (req as any).user?.id,
+
+    };
+
 
     const result = await userService.getAllUsers({
+
       page,
+
       limit,
+
       skip,
-      search,
-      role,
-      status,
-      currentUserId,
+
+      ...filters,
+
     });
 
+
     return sendResponse(res, {
+
       message: "Users fetched successfully",
+
       data: result.data.map(userResource),
+
       meta: result.meta,
+
     });
+
+
   } catch (err: any) {
+
     return sendError(res, {
+
       message: err.message,
+
     });
+
   }
 };
 

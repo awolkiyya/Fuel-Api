@@ -32,7 +32,7 @@ export const createStationStaffSchema = z.object({
 
 
 export const updateStaffStatusSchema = z.object({
-  status: z.enum(["ACTIVE", "OFF", "SUSPENDED"]),
+  status: z.enum(["ACTIVE", "INACTIVE", "SUSPENDED"]),
 })
 
 export const updateStaffPasswordSchema = z.object({

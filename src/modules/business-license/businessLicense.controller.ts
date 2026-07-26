@@ -1,8 +1,19 @@
 import { Request, Response } from "express";
 import { BusinessLicenseService } from "./businessLicense.service";
 import { createBusinessLicenseSchema } from "./businessLicense.request";
+import { BusinessLicenseResource } from "./businessLicense.resource";
+
+const getParam = (
+  value: string | string[] | undefined
+): string => {
+  if (!value) return "";
+  return Array.isArray(value) ? value[0] : value;
+};
 
 export class BusinessLicenseController {
+
+
+  
 /**
  * CREATE LICENSE (USER)
  */
@@ -268,6 +279,235 @@ static async update(req: Request, res: Response) {
     return res.status(500).json({
       success: false,
       message: "Something went wrong while updating business license.",
+    });
+  }
+}
+
+/**
+ * =====================================
+ * ADMIN - SUMMARY
+ * =====================================
+ */
+static async getSummary(req: Request, res: Response) {
+  try {
+    const summary = await BusinessLicenseService.getSummary();
+
+    return res.json({
+      success: true,
+      message: "Business license summary retrieved successfully.",
+      data: summary,
+    });
+  } catch (error: any) {
+    return res.status(500).json({
+      success: false,
+      message: error.message || "Failed to retrieve summary.",
+    });
+  }
+}
+
+/**
+ * =====================================
+ * ADMIN - GET ALL LICENSES
+ * =====================================
+ */
+/**
+ * =====================================
+ * ADMIN - GET ALL LICENSES
+ * =====================================
+ */
+/**
+ * =====================================
+ * ADMIN - GET ALL LICENSES
+ * =====================================
+ */
+static async getAll(req: Request, res: Response) {
+  try {
+
+    const result =
+      await BusinessLicenseService.getAll(req.query);
+
+
+    return res.json({
+
+      success: true,
+
+      message:
+        "Business licenses retrieved successfully.",
+
+
+      data:
+        BusinessLicenseResource.collection(
+          result.data
+        ),
+
+
+      meta:
+        result.meta,
+
+
+      summary:
+        result.summary,
+
+    });
+
+
+  } catch (error: any) {
+
+    return res.status(500).json({
+
+      success: false,
+
+      message:
+        error.message ||
+        "Failed to retrieve licenses.",
+
+    });
+
+  }
+}
+
+/**
+ * =====================================
+ * ADMIN - GET LICENSE DETAILS
+ * =====================================
+ */
+/**
+ * =====================================
+ * ADMIN - GET LICENSE DETAILS
+ * =====================================
+ */
+static async getById(
+  req: Request,
+  res: Response
+) {
+
+  try {
+
+    const id =
+      getParam(req.params.id);
+
+
+
+    if(!id){
+
+      return res.status(400).json({
+
+        success:false,
+
+        message:"License ID is required",
+
+      });
+
+    }
+
+
+
+    const license =
+      await BusinessLicenseService.getById(id);
+
+
+
+    return res.json({
+
+      success:true,
+
+      message:
+        "Business license retrieved successfully.",
+
+
+      data:
+        BusinessLicenseResource.make(
+          license
+        ),
+
+    });
+
+
+  } catch(error:any){
+
+
+    return res.status(404).json({
+
+      success:false,
+
+      message:error.message,
+
+    });
+
+  }
+
+}
+
+/**
+ * =====================================
+ * ADMIN - APPROVE LICENSE
+ * =====================================
+ */
+static async approve(req: Request, res: Response) {
+  try {
+    const adminId = (req as any).user?.id;
+
+    if (!adminId) {
+      return res.status(401).json({
+        success: false,
+        message: "Unauthorized",
+      });
+    }
+
+    const id = getParam(req.params.id);
+
+    const result = await BusinessLicenseService.approve(
+      id,
+      adminId,
+      req.body
+    );
+
+    return res.json({
+      success: true,
+      message: "Business license approved successfully.",
+      data: result,
+    });
+  } catch (error: any) {
+    return res.status(400).json({
+      success: false,
+      message: error.message,
+    });
+  }
+}
+
+/**
+ * =====================================
+ * ADMIN - REJECT LICENSE
+ * =====================================
+ */
+static async reject(req: Request, res: Response) {
+  try {
+    const adminId = (req as any).user?.id;
+
+    if (!adminId) {
+      return res.status(401).json({
+        success: false,
+        message: "Unauthorized",
+      });
+    }
+
+    const id = getParam(req.params.id);
+
+    const result = await BusinessLicenseService.reject(
+      id,
+      adminId,
+      req.body.reason
+    );
+
+    return res.json({
+      success: true,
+      message: "Business license rejected successfully.",
+      data: result,
+    });
+  } catch (error: any) {
+    return res.status(400).json({
+      success: false,
+      message: error.message,
     });
   }
 }

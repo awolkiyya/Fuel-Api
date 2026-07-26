@@ -72,11 +72,11 @@ enum NozzleStatus {
   OFFLINE
 }
 
-enum CameraType {
-  rtsp
-  http
-  webrtc
-  mobile_mock
+enum CameraProtocol {
+  RTSP
+  HTTP
+  HTTPS
+  WEBRTC
 }
 
 enum CameraStatus {
@@ -142,7 +142,7 @@ enum AdjustmentType {
 
 enum BusinessLicenseRequestType {
   NEW
-  RENEW
+  RENEWAL
 }
 
 
@@ -188,6 +188,18 @@ enum QuotaStatus {
 }
 
 
+enum CameraAuthType {
+  NONE
+  BASIC
+  DIGEST
+  TOKEN
+}
+
+enum EquipmentStatus {
+  ACTIVE
+  INACTIVE
+  MAINTENANCE
+}
 
 
 
@@ -233,6 +245,7 @@ model User {
 
 
   notifications Notification[]
+   fuelAttendantTransactions Transaction[] @relation("FuelAttendantTransactions")
 }
 
 
@@ -303,6 +316,8 @@ model FuelType {
   stations         StationFuelType[]
   stationFuelPrice StationFuelPrice[]
   fuelQuotas FuelQuota[]
+    // Nozzles using this fuel
+  nozzles Nozzle[]
 
 }
 
@@ -403,22 +418,21 @@ model Vehicle {
 model BusinessLicense {
   id String @id @default(uuid())
 
-  // ================= OWNER =================
   userId String @unique
-  user   User @relation(fields: [userId], references: [id], onDelete: Cascade)
-  // ================= LICENSE DATA =================
-  licenseNumber String @unique
-  documentUrl   String?
-  expiryDate    DateTime?
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
-  // ================= REQUEST TYPE (IMPORTANT ADDITION) =================
+  licenseNumber String @unique
+  documentUrl String?
+  expiryDate DateTime?
+
   requestType BusinessLicenseRequestType
 
-  // ================= STATUS =================
   status BusinessLicenseStatus @default(PENDING)
-  // ================= META =================
+
   issuedBy String?
   issuedAt DateTime?
+
+  rejectionReason String?
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -563,36 +577,59 @@ model TankAuditLog {
 }
 
 model Dispenser {
-  id        String @id @default(uuid())
+
+  id String @id @default(uuid())
+
   stationId String
 
   number Int
-  status String // active | inactive | maintenance
 
-  station Station  @relation(fields: [stationId], references: [id])
+  status EquipmentStatus @default(ACTIVE)
+
+  station Station @relation(fields:[stationId],references:[id])
+
   nozzles Nozzle[]
 
   createdAt DateTime @default(now())
-  updatedAt DateTime @default(now()) @updatedAt
 
-  @@unique([stationId, number]) // 🔥 prevents duplicates at DB level
+  updatedAt DateTime @updatedAt
+
+
+  @@unique([stationId,number])
+
 }
 
 model Nozzle {
-  id          String @id @default(uuid())
-  dispenserId String
 
-  number   Int
-  fuelType String // Petrol | Diesel
-  status   String // active | busy | offline
+ id String @id @default(uuid())
 
-  dispenser    Dispenser     @relation(fields: [dispenserId], references: [id])
-  fuelRequests FuelRequest[]
+ dispenserId String
 
-  createdAt DateTime @default(now())
-  updatedAt DateTime @default(now()) @updatedAt
 
-  @@unique([dispenserId, number]) // 🔥 prevents duplicate nozzle numbers
+ number Int
+
+
+ fuelTypeId String
+
+
+ status EquipmentStatus @default(ACTIVE)
+
+
+
+ dispenser Dispenser @relation(fields:[dispenserId],references:[id])
+
+
+ fuelType FuelType @relation(fields:[fuelTypeId],references:[id])
+
+
+ fuelRequests FuelRequest[]
+
+ transactions Transaction[]
+
+
+
+ @@unique([dispenserId,number])
+
 }
 
 model StationSetting {
@@ -689,7 +726,7 @@ model Transaction {
   // TRANSACTION TYPE
   // =========================
 
-  type FuelTransactionType
+  type FuelTransactionType @default(NORMAL)
 
 
   // =========================
@@ -735,6 +772,18 @@ model Transaction {
   stationId String
 
   station Station @relation(fields: [stationId], references: [id])
+
+
+   // Attendant who dispensed fuel
+  attendantId String?
+
+  attendant User? @relation("FuelAttendantTransactions",fields:[attendantId],references:[id])
+
+
+  // Pump information
+  nozzleId String?
+
+  nozzle Nozzle? @relation(fields:[nozzleId], references:[id])
 
 
   // =========================
@@ -797,70 +846,107 @@ model Transaction {
 // }
 
 model Camera {
+
   id String @id @default(uuid())
 
+
+  // ================= STATION =================
+
   stationId String
-  station   Station @relation(fields: [stationId], references: [id])
+
+  station Station @relation( fields:[stationId],references:[id])
+
 
   name String
 
-  // ================= STREAM =================
 
-  streamUrl String
-  type CameraType
+
+  // ================= CONNECTION =================
+
+  protocol CameraProtocol
+
+
+  host String
+
+  port Int @default(554)
+
+
+  path String
+  // /video
+  // /Streaming/Channels/101
+
+
 
   // ================= AUTH =================
 
+  authType CameraAuthType @default(NONE)
+
   username String?
 
-  /// Store encrypted password, not plain text
+  /// Encrypted password
   passwordEncrypted String?
 
-  // ================= NETWORK =================
 
-  ipAddress String?
-  port      Int? @default(554)
+
+  // ================= LOCATION =================
 
   location String?
 
-  latitude  Float?
+  latitude Float?
+
   longitude Float?
+
+
 
   // ================= STATUS =================
 
   status CameraStatus @default(offline)
 
-  lastSeenAt    DateTime?
+  lastSeenAt DateTime?
+
   lastCheckedAt DateTime?
 
-  // ================= STREAM CONFIG =================
+
+
+  // ================= STREAM INFORMATION =================
 
   resolution String?
-  fps        Int?
-  codec      String?
 
-  // ================= AI =================
+  fps Int?
+
+  codec String?
+
+
+
+  // ================= AI CONFIG =================
 
   aiEnabled Boolean @default(false)
 
-  /// Queue detection region
-  queueZone Json?
 
-  /// Detection thresholds
-  thresholds Json?
+
 
   // ================= CONTROL =================
 
   isActive Boolean @default(true)
 
+
+
   // ================= EXTRA =================
 
   metadata Json?
 
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-}
 
+
+  createdAt DateTime @default(now())
+
+  updatedAt DateTime @updatedAt
+
+
+  @@index([stationId])
+
+  @@index([status])
+
+}
 
 model UserRisk {
   id String @id @default(uuid())

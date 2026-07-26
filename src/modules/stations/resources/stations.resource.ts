@@ -42,10 +42,21 @@ export type StationResourceType = {
   cameras: {
     id: string;
     name: string;
+    protocol: "RTSP" | "HTTP" | "WEBRTC";
+    host: string;
+    port: number;
+    path: string;
     streamUrl: string;
-    type: "rtsp" | "http" | "webrtc" | "mobile_mock";
+    authType: "NONE" | "BASIC" | "DIGEST";
+    username?: string | null;
     location?: string | null;
+    latitude?: number | null;
+    longitude?: number | null;
     status: "online" | "offline" | "testing";
+    aiEnabled: boolean;
+    resolution?: string | null;
+    fps?: number | null;
+    codec?: string | null;
   }[];
 
   createdAt: Date;
@@ -107,16 +118,32 @@ export const StationResource = {
 
       // ================= ACTIVE CAMERAS =================
       cameras:
-        (station.cameras ?? [])
-          .filter((c: any) => c.isActive)
-          .map((c: any) => ({
-            id: c.id,
-            name: c.name,
-            streamUrl: c.streamUrl,
-            type: c.type,
-            location: c.location ?? null,
-            status: c.status,
-          })),
+        (station.cameras ?? []).map((c: any) => ({
+          id: c.id,
+          name: c.name,
+
+          protocol: c.protocol,
+          host: c.host,
+          port: c.port,
+          path: c.path,
+
+          streamUrl: `${String(c.protocol).toLowerCase()}://${c.host}:${c.port}${c.path}`,
+
+          authType: c.authType,
+          username: c.username,
+
+          location: c.location ?? null,
+          latitude: c.latitude,
+          longitude: c.longitude,
+
+          status: c.status,
+
+          aiEnabled: c.aiEnabled,
+
+          resolution: c.resolution,
+          fps: c.fps,
+          codec: c.codec,
+        })),
 
       createdAt: station.createdAt,
       updatedAt: station.updatedAt,

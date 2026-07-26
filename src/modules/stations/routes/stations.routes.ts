@@ -22,15 +22,18 @@ import {
   getStationFuelConfig,
   updateStationFuelConfig,
   getStationNozzles, // 🔥 NEW
-} from "./controllers/stations.controller"
+} from "../controllers/stations.controller"
 
-import { authMiddleware } from "../../middlewares/auth.middleware"
-import { validate } from "../../middlewares/validate.middleware"
-import { createStationSchema, updateStationSchema } from "../../schemas/stations.schema"
-import upload from "../../middlewares/upload.middleware"
-import { createStationStaffSchema, updateStaffPasswordSchema, updateStaffStatusSchema } from "../../schemas/staff.schema"
-import { createStationStaff, getStationStaff, getStationStaffById, updateStaffPassword, updateStaffStatus } from "./controllers/staff.controller"
-import { approveFuelRequest, cancelFuelRequest, completeDispensingFuelRequest, getCurrentStationFuelRequest, getRejectionReasons, getStationFuelRequestById, getStationFuelRequests, rejectFuelRequest, startDispensingFuelRequest, verifyFuelRequest } from "./controllers/station-operator.controller"
+import { authMiddleware } from "../../../middlewares/auth.middleware"
+import { validate } from "../../../middlewares/validate.middleware"
+import { createStationSchema, updateStationSchema } from "../../../schemas/stations.schema"
+import upload from "../../../middlewares/upload.middleware"
+import { createStationStaffSchema, updateStaffPasswordSchema, updateStaffStatusSchema } from "../../../schemas/staff.schema"
+import { createStationStaff, getStationStaff, getStationStaffById, updateStaffPassword, updateStaffProfile, updateStaffStatus } from "../controllers/staff.controller"
+import { approveFuelRequest, cancelFuelRequest, completeDispensingFuelRequest, getCurrentStationFuelRequest, getRejectionReasons, getStationFuelRequestById, getStationFuelRequests, rejectFuelRequest, startDispensingFuelRequest, verifyFuelRequest } from "../controllers/station-operator.controller"
+import { getStationSettings, updateQueueSettings } from "../controllers/station-settings.controller"
+import { getStationTraffic, updateManualTraffic } from "../controllers/station-traffic.controller"
+import { getStationTransactionById, getStationTransactions, getTransactionSummary } from "../controllers/station-transaction.controller"
 
 const router = Router()
 
@@ -57,6 +60,7 @@ router.get("/managers", authMiddleware, getManagers)
 
 // ================= READ =================
 router.get("/", authMiddleware, getStations)
+
 router.get("/:id", authMiddleware, getStationById)
 
 
@@ -183,6 +187,13 @@ router.post(
   createStationStaff
 )
 
+// UPDATE staff profile
+router.patch(
+  "/:id/staff/:userId",
+  authMiddleware,
+  updateStaffProfile
+)
+
 // UPDATE staff status (NO DELETE SYSTEM)
 router.patch(
   "/:id/staff/:userId/status",
@@ -208,30 +219,11 @@ router.get(
 
 
 // now here manage the fuel transactions/request info also,fuel for stations
-router.get(
-  "/:id/fuel-transactions",
-  authMiddleware,
-  getStationStaffById
-)
-
-// // here the station operator side routes
-//  // ================= 🚏 STATION OPERATOR (FUEL REQUESTS) =================
-
-// // GET station-specific fuel requests (filter + search + pagination)
 // router.get(
-//   "/station-operator/fuel-requests",
+//   "/:id/fuel-transactions",
 //   authMiddleware,
-//   getStationFuelRequests
+//   getStationStaffById
 // )
-
-// // =====================================================
-// // GET rejection reasons (for dropdown/UI)
-// // =====================================================
-// router.get(
-//   "/station-operator/rejection-reasons",
-//   authMiddleware,
-//   getRejectionReasons
-// );
 
 
 // here work flow
@@ -325,6 +317,101 @@ router.patch(
   authMiddleware,
   cancelFuelRequest
 );
+
+
+// ================================
+// ⚙️ STATION SETTINGS
+// ================================
+
+
+// Get station settings + global limits
+router.get(
+  "/:id/settings",
+  authMiddleware,
+  getStationSettings
+);
+
+
+
+// Update station queue configuration
+router.patch(
+  "/:id/settings",
+  authMiddleware,
+  updateQueueSettings
+);
+
+
+
+
+
+
+// ================================
+// 🚦 STATION TRAFFIC
+// ================================
+
+
+// Get current AI/manual traffic status
+router.get(
+  "/:id/traffic",
+  authMiddleware,
+  getStationTraffic
+);
+
+
+
+// Manual traffic override
+router.patch(
+  "/:id/traffic/manual",
+  authMiddleware,
+  updateManualTraffic
+);
+
+
+// ================================
+// ⛽ STATION FUEL TRANSACTIONS
+// ================================
+
+
+// Dashboard summary
+// total transactions
+// total liters
+// revenue
+// organization fuel
+// normal fuel
+
+router.get(
+  "/:id/fuel-transactions/summary",
+  authMiddleware,
+  getTransactionSummary
+)
+
+// Transaction list
+// filters:
+// type
+// fuelType
+// attendant
+// nozzle
+// paymentStatus
+// date range
+router.get(
+  "/:id/fuel-transactions",
+  authMiddleware,
+  getStationTransactions
+)
+
+
+// Single transaction details
+router.get(
+  "/:id/fuel-transactions/:transactionId",
+  authMiddleware,
+  getStationTransactionById
+)
+
+
+
+
+
+export default router
 
 
 
@@ -489,5 +576,3 @@ router.patch(
 
 // here the station camera , station settings , station trafic
 
-
-export default router
