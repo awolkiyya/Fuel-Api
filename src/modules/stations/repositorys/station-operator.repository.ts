@@ -67,11 +67,16 @@ export const fuelRequestRepository = {
 
   findById: async (id: string) => {
     return prisma.fuelRequest.findUnique({
-      where: { id },
+      where: {
+        id,
+      },
+  
       include: {
+  
         user: {
           include: {
             driverProfile: true,
+  
             risks: {
               take: 1,
               orderBy: {
@@ -80,23 +85,55 @@ export const fuelRequestRepository = {
             },
           },
         },
-
+  
+  
         vehicle: {
           include: {
             vehicleType: true,
             fuelType: true,
           },
         },
-
+  
+  
         station: true,
+  
+  
         fuelType: true,
-        nozzle: true,
+  
+  
+        nozzle: {
+          include: {
+  
+            dispenser: {
+              select: {
+                id: true,
+                number: true,
+                status: true,
+              },
+            },
+  
+  
+            fuelType: {
+              select: {
+                id: true,
+                name: true,
+                price: true,
+                status: true,
+              },
+            },
+  
+          },
+        },
+  
+  
         rejectionReason: true,
+  
+  
         transaction: true,
+  
       },
     });
   },
-
   
 
   currentFuelRequest: async ({

@@ -1127,16 +1127,20 @@ export const getStationNozzles = async (
   req: Request,
   res: Response
 ): Promise<void> => {
+
   try {
 
-    const stationId = Array.isArray(req.params.id)
-      ? req.params.id[0]
-      : req.params.id;
+
+    const stationId =
+      Array.isArray(req.params.id)
+        ? req.params.id[0]
+        : req.params.id;
 
 
-    const fuelTypeId =
-      typeof req.query.fuelTypeId === "string"
-        ? req.query.fuelTypeId
+
+    const fuelType =
+      typeof req.query.fuelType === "string"
+        ? req.query.fuelType
         : undefined;
 
 
@@ -1148,80 +1152,112 @@ export const getStationNozzles = async (
 
 
     const perPage = Math.min(
-      Math.max(Number(req.query.perPage) || 20, 1),
+      Math.max(
+        Number(req.query.perPage) || 20,
+        1
+      ),
       100
     );
 
 
 
+
     const where: Prisma.NozzleWhereInput = {
+
 
       dispenser:{
         stationId,
       },
 
 
-      ...(fuelTypeId && {
-        fuelTypeId,
-      })
+      ...(fuelType && {
+
+        fuelType:{
+          name:{
+            equals:fuelType,
+            mode:"insensitive",
+          },
+        },
+
+      }),
+
 
     };
 
 
 
-    const [total,nozzles] =
-      await prisma.$transaction([
+
+
+    const [
+      total,
+      nozzles
+    ] = await prisma.$transaction([
 
 
 
-        prisma.nozzle.count({
-          where,
-        }),
+      prisma.nozzle.count({
+        where,
+      }),
 
 
 
-        prisma.nozzle.findMany({
 
-          where,
+      prisma.nozzle.findMany({
 
-
-          include:{
+        where,
 
 
-            // 🔥 required for nozzle.fuelType.name
-            fuelType:{
-              select:{
-                id:true,
-                name:true,
-                price:true,
-                status:true,
-              }
+
+        include:{
+
+
+          fuelType:{
+            select:{
+              id:true,
+              name:true,
+              price:true,
+              status:true,
             },
-
-
-            dispenser:{
-              select:{
-                id:true,
-                number:true,
-                status:true,
-                stationId:true,
-              }
-            }
-
           },
 
 
-          skip:
-            (page - 1) * perPage,
+
+          dispenser:{
+            select:{
+              id:true,
+              number:true,
+              status:true,
+              stationId:true,
+            },
+          },
 
 
-          take:
-            perPage,
+        },
 
 
-        })
 
-      ]);
+        skip:
+          (page - 1) * perPage,
+
+
+
+        take:
+          perPage,
+
+
+
+        orderBy:{
+          number:"asc",
+        },
+
+
+      }),
+
+
+
+    ]);
+
+
 
 
 
@@ -1229,21 +1265,31 @@ export const getStationNozzles = async (
 
       success:true,
 
+
       data:nozzles,
 
 
       meta:{
+
         page,
+
         perPage,
+
         total,
+
         totalPages:
-          Math.ceil(total/perPage),
-      }
+          Math.ceil(
+            total / perPage
+          ),
+
+      },
 
     });
 
 
+
   } catch(error:any){
+
 
     console.error(
       "Get station nozzles:",
@@ -1257,11 +1303,13 @@ export const getStationNozzles = async (
 
       message:
         error.message ||
-        "Failed to fetch station nozzles."
+        "Failed to fetch station nozzles.",
 
     });
 
+
   }
+
 };
 export const updateQueueZone = async (req: Request, res: Response) => {
   try {

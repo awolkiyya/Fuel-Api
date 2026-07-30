@@ -1,5 +1,5 @@
 import { buildMeta } from "../../utils/pagination"
-import { driverRepository } from "./drivers.repository"
+import { buildDriverWhere, driverRepository } from "./drivers.repository"
 
 export const driverService = {
   // GET ALL DRIVERS
@@ -12,23 +12,21 @@ export const driverService = {
     riskLevel,
     vehicleFilter,
   }: any) => {
+    // Resolved ONCE here and shared by both findAll and count, so a
+    // risk/vehicle filter no longer triggers its resolver query twice
+    // per request.
+    const where = await buildDriverWhere({
+      search,
+      status,
+      riskLevel,
+      vehicleFilter,
+    })
+
     const [drivers, total] = await Promise.all([
-      driverRepository.findAll({
-        skip,
-        limit,
-        search,
-        status,
-        riskLevel,
-        vehicleFilter,
-      }),
-      driverRepository.count({
-        search,
-        status,
-        riskLevel,
-        vehicleFilter,
-      }),
+      driverRepository.findAll({ where, skip, limit }),
+      driverRepository.count({ where }),
     ])
-  
+
     return {
       data: drivers,
       meta: buildMeta(page, limit, total),

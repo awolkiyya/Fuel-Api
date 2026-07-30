@@ -184,7 +184,7 @@ export class BusinessLicenseService {
 
         expiryDate,
 
-        requestType:"RENEW",
+        requestType:"RENEWAL",
 
         status:"PENDING",
 
@@ -350,7 +350,7 @@ export class BusinessLicenseService {
       prisma.businessLicense.count({
 
         where:{
-          requestType:"RENEW",
+          requestType:"RENEWAL",
         },
 
       }),
@@ -592,7 +592,7 @@ static async getAll(query: any) {
         break;
 
 
-      case "RENEW":
+      case "RENEWAL":
         summary.renewRequests += count;
         break;
 
@@ -719,7 +719,7 @@ static async getById(
 static async approve(
   id: string,
   adminId: string,
-  data: any
+  data: any = {}
 ) {
 
   const license =
@@ -763,7 +763,7 @@ static async approve(
       issuedAt: new Date(),
 
 
-      ...(data.expiryDate && {
+      ...(data?.expiryDate && {
 
         expiryDate: new Date(
           data.expiryDate
@@ -773,7 +773,7 @@ static async approve(
 
 
 
-      ...(data.licenseNumber && {
+      ...(data?.licenseNumber && {
 
         licenseNumber:
           data.licenseNumber,
@@ -785,8 +785,6 @@ static async approve(
   });
 
 }
-
-
 
 
 
@@ -853,7 +851,7 @@ static async reject(
 
 
       // Uncomment after adding field
-      // rejectionReason: reason,
+      rejectionReason: reason,
 
     },
 

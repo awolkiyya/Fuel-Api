@@ -446,10 +446,10 @@ export const approveFuelRequestService = async ({
     const nozzle = await tx.nozzle.findFirst({
       where: {
         id: nozzleId,
-        status: "active",
+        status: "ACTIVE",
         dispenser: {
           stationId,
-          status: "active",
+          status: "ACTIVE",
         },
       },
     });
@@ -724,9 +724,7 @@ export const completeDispensingFuelRequestService = async ({
   stationId,
   dispensedLiters,
 }: CompleteDispensingFuelRequestInput) => {
-
   return prisma.$transaction(async (tx) => {
-
     // ==========================================
     // Get Fuel Request Context
     // ==========================================
@@ -742,14 +740,12 @@ export const completeDispensingFuelRequestService = async ({
       },
     });
 
-
     if (!fuelRequest) {
       throw {
         statusCode: 404,
         message: "Fuel request not found.",
       };
     }
-
 
     // ==========================================
     // Station validation
@@ -761,18 +757,15 @@ export const completeDispensingFuelRequestService = async ({
       };
     }
 
-
     // ==========================================
     // Status validation
     // ==========================================
     if (fuelRequest.status !== FuelRequestStatus.DISPENSING) {
       throw {
         statusCode: 400,
-        message:
-          `Only DISPENSING requests can be completed. Current status: ${fuelRequest.status}`,
+        message: `Only DISPENSING requests can be completed. Current status: ${fuelRequest.status}`,
       };
     }
-
 
     // ==========================================
     // Validate liters
@@ -784,25 +777,20 @@ export const completeDispensingFuelRequestService = async ({
       };
     }
 
-
     if (
       fuelRequest.approvedLiters &&
       dispensedLiters > fuelRequest.approvedLiters
     ) {
       throw {
         statusCode: 400,
-        message:
-          "Dispensed liters cannot exceed approved liters.",
+        message: "Dispensed liters cannot exceed approved liters.",
       };
     }
-
-
 
     // ==========================================
     // Get System Price Settings
     // ==========================================
     const settings = await tx.systemSettings.findFirst();
-
 
     if (!settings) {
       throw {
@@ -811,21 +799,16 @@ export const completeDispensingFuelRequestService = async ({
       };
     }
 
-
-
     // ==========================================
     // Get Station Override Price
     // ==========================================
-    const stationOverride =
-      await tx.stationFuelPrice.findFirst({
-        where: {
-          stationId: fuelRequest.stationId,
-          fuelTypeId: fuelRequest.fuelTypeId,
-          isOverride: true,
-        },
-      });
-
-
+    const stationOverride = await tx.stationFuelPrice.findFirst({
+      where: {
+        stationId: fuelRequest.stationId,
+        fuelTypeId: fuelRequest.fuelTypeId,
+        isOverride: true,
+      },
+    });
 
     // ==========================================
     // Resolve Final Price
@@ -849,8 +832,6 @@ export const completeDispensingFuelRequestService = async ({
       }
     );
 
-
-
     if (pricePerLiter <= 0) {
       throw {
         statusCode: 400,
@@ -858,43 +839,33 @@ export const completeDispensingFuelRequestService = async ({
       };
     }
 
-
-
     // ==========================================
     // Calculate Cost
     // ==========================================
-    const totalCost =
-      dispensedLiters * pricePerLiter;
-
-
+    const totalCost = dispensedLiters * pricePerLiter;
 
     // ==========================================
     // Complete Fuel Request
     // ==========================================
-    const completedRequest =
-      await tx.fuelRequest.update({
+    const completedRequest = await tx.fuelRequest.update({
+      where: {
+        id: fuelRequest.id,
+      },
 
-        where: {
-          id: fuelRequest.id,
-        },
-
-        data: {
-          status: FuelRequestStatus.COMPLETED,
-          dispensedLiters,
-          completedAt: new Date(),
-          assignedToId: operatorId,
-        },
-      });
-
-
+      data: {
+        status: FuelRequestStatus.COMPLETED,
+        dispensedLiters,
+        completedAt: new Date(),
+        assignedToId: operatorId,
+      },
+    });
 
     // ==========================================
     // Create Transaction Snapshot
     // ==========================================
     await tx.transaction.create({
-      
       data: {
-        type: "NORMAL", // this is when the requester is driver
+        type: "NORMAL",
 
         fuelRequestId: fuelRequest.id,
 
@@ -906,40 +877,65 @@ export const completeDispensingFuelRequestService = async ({
 
         fuelTypeId: fuelRequest.fuelTypeId,
 
-
         litersGiven: dispensedLiters,
 
-        // 🔥 final price used at dispensing time
         pricePerLiter,
 
         totalCost,
 
-
         paymentStatus: "PAID",
       },
-
     });
 
+    // ==========================================
+    // Update Vehicle Daily Usage
+    // ==========================================
+    const today = new Date();
 
+    today.setHours(0, 0, 0, 0);
+
+    await tx.vehicleDailyUsage.upsert({
+      where: {
+        vehicleId_date: {
+          vehicleId: fuelRequest.vehicleId,
+          date: today,
+        },
+      },
+
+      update: {
+        totalLiters: {
+          increment: dispensedLiters,
+        },
+      },
+
+      create: {
+        vehicleId: fuelRequest.vehicleId,
+        date: today,
+        totalLiters: dispensedLiters,
+      },
+    });
 
     // ==========================================
     // Return Completed Request
     // ==========================================
     return tx.fuelRequest.findUnique({
-
       where: {
         id: completedRequest.id,
       },
 
       include: {
-
         user: {
           include: {
             driverProfile: true,
           },
         },
 
-        vehicle: true,
+        vehicle: {
+          include: {
+            vehicleType: true,
+            fuelType: true,
+          },
+        },
 
         station: true,
 
@@ -948,13 +944,16 @@ export const completeDispensingFuelRequestService = async ({
         nozzle: {
           include: {
             dispenser: true,
+            fuelType: true,
           },
         },
 
         transaction: true,
+
+        rejectionReason: true,
+
+        assignedTo: true,
       },
-
     });
-
   });
 };

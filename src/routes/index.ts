@@ -13,6 +13,7 @@ import publicSationsRoutes from "../modules/publics/routes/stations.route";
 import publicvehiclesRoutes from "../modules/publics/routes/driverVehicle.routes";
 import publicfuelRequestRoutes from "../modules/publics/routes/fuelRequest.route";
 import publicLicenseRoutes from "../modules/publics/routes/publicLicenseRoutes";
+import publicFuelTransactionRoutes from "../modules/publics/routes/publicfuelTransactionRoutes";
 
 import businessLicenseRoutes from "../modules/business-license/businessLicense.routes";
 
@@ -94,7 +95,7 @@ console.log("🧭 /public/stations routes loaded");
 router.use("/public/stations", publicSationsRoutes);
 router.use("/public/vehicles", publicvehiclesRoutes);
 router.use("/public/fuelrequests", publicfuelRequestRoutes);
-router.use("/public/fueltransactions", publicfuelRequestRoutes);
+router.use("/public/fueltransactions", publicFuelTransactionRoutes);
 console.log("🧭 /public/license routes loaded");
 router.use("/public/license", publicLicenseRoutes);
 

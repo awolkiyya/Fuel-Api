@@ -171,15 +171,34 @@ vehicle: item.vehicle
           }
         : null,
   
-      // ================= DISPENSING =================
-      nozzle: item.nozzle
+        nozzle: item.nozzle
         ? {
-            id: item.nozzle.id,
-            number: item.nozzle.number,
-            fuelType: item.nozzle.fuelType,
-            status: item.nozzle.status,
-          }
-        : null,
+        
+            id:item.nozzle.id,
+        
+            number:item.nozzle.number,
+        
+            status:item.nozzle.status,
+        
+        
+            dispenser:item.nozzle.dispenser
+              ? {
+                  id:item.nozzle.dispenser.id,
+                  number:item.nozzle.dispenser.number,
+                  status:item.nozzle.dispenser.status,
+                }
+              : null,
+        
+        
+            fuelType:item.nozzle.fuelType
+              ? {
+                  id:item.nozzle.fuelType.id,
+                  name:item.nozzle.fuelType.name,
+                }
+              : null,
+        
+        }
+        :null,
   
       // ================= REJECTION =================
       rejection: item.rejectionReason
