@@ -314,11 +314,11 @@ export const searchStations = async (
       const totalNozzles = allNozzles.length;
 
       const activeNozzles = allNozzles.filter(
-        (n) => n.status === "active"
+        (n) => n.status === "ACTIVE"
       ).length;
 
       const busyNozzles = allNozzles.filter(
-        (n) => n.status === "busy"
+        (n) => n.status === "INACTIVE"
       ).length;
 
       // ===================================================
@@ -603,11 +603,11 @@ export const getStationById = async (
     const totalNozzles = allNozzles.length;
 
     const activeNozzles = allNozzles.filter(
-      (n) => n.status === "active"
+      (n) => n.status === "ACTIVE"
     ).length;
 
     const busyNozzles = allNozzles.filter(
-      (n) => n.status === "busy"
+      (n) => n.status === "INACTIVE"
     ).length;
 
     // =========================

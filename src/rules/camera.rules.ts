@@ -9,5 +9,5 @@ export function canRunAI(camera: Camera): boolean {
 }
 
 export function isStreamValid(camera: Camera): boolean {
-  return !!camera.streamUrl && camera.status !== "offline"
+  return !!camera.host && camera.status !== "offline"
 }
