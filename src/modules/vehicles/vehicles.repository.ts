@@ -1,22 +1,52 @@
 import prisma from "../../config/db";
-import { CreateVehicleDTO, UpdateVehicleDTO } from "./vehicles.types";
+import {
+  CreateVehicleDTO,
+  UpdateVehicleDTO,
+} from "./vehicles.types";
 
 export const vehicleRepository = {
+
   // =====================================================
-  // CREATE
+  // CREATE VEHICLE + OWNERSHIP DOCUMENT
   // =====================================================
-  create: async (data: CreateVehicleDTO) => {
-    return prisma.vehicle.create({
-      data,
-      include: {
-        vehicleType: true,
-        fuelType: true,
-      },
+  create: async (
+    data: CreateVehicleDTO,
+    documentUrl: string
+  ) => {
+
+    return prisma.$transaction(async (tx) => {
+
+      const vehicle = await tx.vehicle.create({
+        data: {
+          userId: data.userId,
+          vehicleTypeId: data.vehicleTypeId,
+          fuelTypeId: data.fuelTypeId,
+          regionCode: data.regionCode,
+          plateNumber: data.plateNumber,
+          vin: data.vin,
+          fuelCapacity: data.fuelCapacity,
+
+          ownershipDocument: {
+            create: {
+              documentUrl,
+            },
+          },
+        },
+
+        include: {
+          vehicleType: true,
+          fuelType: true,
+          ownershipDocument: true,
+        },
+      });
+
+      return vehicle;
     });
   },
 
+
   // =====================================================
-  // FIND ALL (USER SCOPED + PAGINATED)
+  // FIND ALL
   // =====================================================
   findAll: async ({
     userId,
@@ -29,83 +59,124 @@ export const vehicleRepository = {
     take: number;
     order?: "asc" | "desc";
   }) => {
+
     return prisma.vehicle.findMany({
       where: {
         userId,
-        isDeleted: false, // 🔥 important soft delete filter
+        isDeleted: false,
       },
-  
+
       skip,
       take,
-  
+
       orderBy: {
         createdAt: order,
       },
-  
+
       include: {
         vehicleType: true,
         fuelType: true,
+        ownershipDocument: true,
       },
     });
   },
 
+
   // =====================================================
-  // COUNT (USER SCOPED)
+  // COUNT
   // =====================================================
-  count: async ({ userId }: { userId: string }) => {
+  count: async ({
+    userId,
+  }: {
+    userId: string;
+  }) => {
+
     return prisma.vehicle.count({
       where: {
         userId,
-        isDeleted: false, // 🔥 IMPORTANT
+        isDeleted: false,
       },
     });
   },
 
+
   // =====================================================
-  // FIND BY ID (USER SAFE + SOFT DELETE SAFE)
+  // FIND BY ID
   // =====================================================
-  findById: async (id: string, userId?: string) => {
+  findById: async (
+    id: string,
+    userId?: string
+  ) => {
+
     return prisma.vehicle.findFirst({
       where: {
         id,
         isDeleted: false,
-        ...(userId ? { userId } : {}),
+
+        ...(userId
+          ? {
+              userId,
+            }
+          : {}),
       },
+
       include: {
         vehicleType: true,
         fuelType: true,
+        ownershipDocument: true,
       },
     });
   },
+
 
   // =====================================================
   // FIND BY PLATE
   // =====================================================
-  findByPlate: async (plateNumber: string, userId?: string) => {
+  findByPlate: async (
+    plateNumber: string,
+    userId?: string
+  ) => {
+
     return prisma.vehicle.findFirst({
       where: {
         plateNumber,
         isDeleted: false,
-        ...(userId ? { userId } : {}),
+
+        ...(userId
+          ? {
+              userId,
+            }
+          : {}),
       },
     });
   },
+
 
   // =====================================================
   // FIND BY VIN
   // =====================================================
-  findByVin: async (vin: string, userId?: string) => {
+  findByVin: async (
+    vin: string,
+    userId?: string
+  ) => {
+
     return prisma.vehicle.findFirst({
       where: {
         vin,
         isDeleted: false,
-        ...(userId ? { userId } : {}),
+
+        ...(userId
+          ? {
+              userId,
+            }
+          : {}),
       },
     });
   },
 
+
   // =====================================================
-  // FIND DUPLICATE (STRONG SAFETY CHECK)
+  // FIND DUPLICATE
   // =====================================================
   findDuplicate: async ({
     plateNumber,
@@ -116,54 +187,141 @@ export const vehicleRepository = {
     vin: string;
     userId?: string;
   }) => {
+
     return prisma.vehicle.findFirst({
       where: {
         isDeleted: false,
-        OR: [{ plateNumber }, { vin }],
-        ...(userId ? { userId } : {}),
+
+        OR: [
+          {
+            plateNumber,
+          },
+          {
+            vin,
+          },
+        ],
+
+        ...(userId
+          ? {
+              userId,
+            }
+          : {}),
       },
     });
   },
 
+
   // =====================================================
-  // FIND BY USER
+  // FIND USER VEHICLES
   // =====================================================
-  findByUserId: async (userId: string) => {
+  findByUserId: async (
+    userId: string
+  ) => {
+
     return prisma.vehicle.findMany({
       where: {
         userId,
-        isDeleted: false, // 🔥 IMPORTANT
+        isDeleted: false,
       },
+
       orderBy: {
         createdAt: "desc",
       },
+
       include: {
         vehicleType: true,
         fuelType: true,
+        ownershipDocument: true,
       },
     });
   },
 
+
   // =====================================================
-  // UPDATE
+  // UPDATE VEHICLE
   // =====================================================
-  update: async (id: string, data: UpdateVehicleDTO) => {
+  update: async (
+    id: string,
+    data: UpdateVehicleDTO
+  ) => {
+
     return prisma.vehicle.update({
-      where: { id },
+      where: {
+        id,
+      },
+
       data,
+
       include: {
         vehicleType: true,
         fuelType: true,
+        ownershipDocument: true,
       },
     });
   },
 
+
   // =====================================================
-  // SOFT DELETE (REPLACES HARD DELETE)
+  // UPDATE OWNERSHIP DOCUMENT
   // =====================================================
-  softDelete: async (id: string) => {
+  
+  updateOwnershipDocument: async (
+    vehicleId: string,
+    documentUrl: string,
+    ownershipNumber?: string
+  ) => {
+    return prisma.vehicleOwnershipDocument.upsert({
+      where: {
+        vehicleId,
+      },
+  
+      // =================================================
+      // CREATE
+      // =================================================
+  
+      create: {
+        vehicleId,
+        documentUrl,
+        ownershipNumber,
+      },
+  
+      // =================================================
+      // UPDATE
+      // =================================================
+  
+      update: {
+        documentUrl,
+  
+        // Only update ownership number when supplied.
+        ...(ownershipNumber !== undefined
+          ? {
+              ownershipNumber,
+            }
+          : {}),
+  
+        // New document must be verified again.
+        status: "PENDING",
+  
+        verifiedBy: null,
+        verifiedAt: null,
+        rejectionReason: null,
+      },
+    });
+  },
+    
+
+  // =====================================================
+  // SOFT DELETE
+  // =====================================================
+  softDelete: async (
+    id: string
+  ) => {
+
     return prisma.vehicle.update({
-      where: { id },
+      where: {
+        id,
+      },
+
       data: {
         isDeleted: true,
         deletedAt: new Date(),
@@ -172,28 +330,48 @@ export const vehicleRepository = {
     });
   },
 
+
   // =====================================================
-  // FIND VEHICLE TYPE BY ID
+  // VEHICLE TYPE
   // =====================================================
-  findVehicleTypeById: async (id: string) => {
+  findVehicleTypeById: async (
+    id: string
+  ) => {
+
     return prisma.vehicleType.findUnique({
-      where: { id },
+      where: {
+        id,
+      },
+
       include: {
         allowedFuelTypes: true,
       },
     });
   },
 
+
+  // =====================================================
+  // UPDATE STATUS
+  // =====================================================
   updateStatus: async (
     id: string,
-    data: { isActive?: boolean; isVerified?: boolean }
+    data: {
+      isActive?: boolean;
+      isVerified?: boolean;
+    }
   ) => {
+
     return prisma.vehicle.update({
-      where: { id },
+      where: {
+        id,
+      },
+
       data,
+
       include: {
         vehicleType: true,
         fuelType: true,
+        ownershipDocument: true,
       },
     });
   },

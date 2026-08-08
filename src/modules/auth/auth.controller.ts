@@ -1,179 +1,104 @@
 import { Request, Response } from "express";
 
-import {
-  registerUser,
-  loginUser,
-} from "./auth.service";
-
+import { registerUser, loginUser } from "./auth.service";
 
 import otpService from "../../services/otp.service";
 import smsService from "../../services/sms.service";
 
+import { OtpType, UserRole, UserStatus } from "@prisma/client";
 
-import {
-  OtpType,
-  UserRole,
-  UserStatus,
-} from "@prisma/client";
+import { sendResponse } from "../../utils/apiResponse";
 
+import { sendError } from "../../utils/apiError";
 
-import {
-  sendResponse,
-} from "../../utils/apiResponse";
-
-
-import {
-  sendError,
-} from "../../utils/apiError";
-
-
-import {
-  userResource,
-} from "../users/user.resource";
-
+import { userResource } from "../users/user.resource";
 
 import prisma from "../../config/db";
 
+import { isValidEthiopianPhone, normalizePhone } from "../../utils/phone";
 
-import {
-  isValidEthiopianPhone,
-  normalizePhone,
-} from "../../utils/phone";
+import { generateToken } from "../../utils/jwt";
 
-
-import {
-  generateToken,
-} from "../../utils/jwt";
-
-
+// Single source of truth for the driverProfile include shape, so every
+// query that touches a driver also gets their license nested. Update
+// this in one place instead of hunting down every findUnique/create/update.
+const driverProfileInclude = {
+  driverProfile: {
+    include: { license: true },
+  },
+} as const;
 
 /* -----------------------------
    REGISTER
 ------------------------------ */
 
-export const register = async (
-  req: Request,
-  res: Response
-) => {
-
+export const register = async (req: Request, res: Response) => {
   try {
+    const result = await registerUser(req.body);
 
-    const result =
-      await registerUser(
-        req.body
-      );
+    return sendResponse(res, {
+      statusCode: 201,
 
+      message: "User registered successfully",
 
-    return sendResponse(res,{
-      statusCode:201,
-
-      message:
-        "User registered successfully",
-
-      data:
-        result,
-
+      data: result,
     });
+  } catch (error: any) {
+    return sendError(res, {
+      statusCode: 400,
 
+      message: error.message || "Registration failed",
 
-  }catch(error:any){
-
-    return sendError(res,{
-
-      statusCode:400,
-
-      message:
-        error.message ||
-        "Registration failed",
-
-      code:
-        "REGISTER_FAILED",
-
+      code: "REGISTER_FAILED",
     });
-
   }
-
 };
-
-
-
-
-
-
 
 /* -----------------------------
    LOGIN WITH PASSWORD
 ------------------------------ */
 
-export const login = async (
-  req: Request,
-  res: Response
-) => {
-
+export const login = async (req: Request, res: Response) => {
   try {
-
     const result = await loginUser(req.body);
 
-
     // Store token in secure HttpOnly cookie
-    res.cookie(
-      "accessToken",
-      result.token,
-      {
-        httpOnly: true,
-        secure: process.env.NODE_ENV === "production",
-        sameSite: "lax",
-        maxAge: 1000 * 60 * 60 * 24, // 1 day
-        path: "/",
-      }
-    );
+    res.cookie("accessToken", result.token, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === "production",
+      sameSite: "lax",
+      maxAge: 1000 * 60 * 60 * 24, // 1 day
+      path: "/",
+    });
 
+    return sendResponse(res, {
+      statusCode: 200,
 
-    return sendResponse(res,{
+      message: "Login successful",
 
-      statusCode:200,
-
-      message:"Login successful",
-
-      data:{
-
+      data: {
         user: result.user,
 
         // Keep returning for existing frontend logic
         accessToken: result.token,
-
       },
-
     });
-
-
-  } catch (error:any) {
-
+  } catch (error: any) {
     console.error("LOGIN ERROR:", error);
 
-    return sendError(res,{
-      statusCode:error.statusCode ?? 401,
-      message:error.message ?? "Invalid credentials",
-      code:"LOGIN_FAILED",
+    return sendError(res, {
+      statusCode: error.statusCode ?? 401,
+      message: error.message ?? "Invalid credentials",
+      code: "LOGIN_FAILED",
     });
-
   }
-
 };
-
-
-
-
-
 
 /* -----------------------------
    REQUEST OTP
 ------------------------------ */
 
-export const requestOtp = async (
-  req: Request,
-  res: Response
-) => {
+export const requestOtp = async (req: Request, res: Response) => {
   try {
     const { phone, type } = req.body;
 
@@ -194,9 +119,7 @@ export const requestOtp = async (
     ------------------------------ */
 
     const normalizedType = (
-      typeof type === "string"
-        ? type.toUpperCase()
-        : OtpType.LOGIN
+      typeof type === "string" ? type.toUpperCase() : OtpType.LOGIN
     ) as OtpType;
 
     /* -----------------------------
@@ -221,16 +144,12 @@ export const requestOtp = async (
       ipAddress: req.ip,
       userAgent: req.headers["user-agent"],
     });
-    
 
     /* -----------------------------
        Send SMS
     ------------------------------ */
 
-    const sms = await smsService.sendOtpMessage(
-      phone,
-      otp
-    );
+    const sms = await smsService.sendOtpMessage(phone, otp);
 
     if (!sms.success) {
       return sendError(res, {
@@ -244,10 +163,7 @@ export const requestOtp = async (
        Mark OTP as Sent
     ------------------------------ */
 
-    await otpService.markSent(
-      phone,
-      normalizedType
-    );
+    await otpService.markSent(phone, normalizedType);
 
     /* -----------------------------
        Success Response
@@ -261,7 +177,6 @@ export const requestOtp = async (
         type: normalizedType,
       },
     });
-
   } catch (error: any) {
     return sendError(res, {
       statusCode: 400,
@@ -271,368 +186,171 @@ export const requestOtp = async (
   }
 };
 
-
-
-
-
-
-
-
 /* -----------------------------
    VERIFY DRIVER OTP LOGIN
 ------------------------------ */
 
-export const verifyDriverOtp = async (
-  req: Request,
-  res: Response
-) => {
-
+export const verifyDriverOtp = async (req: Request, res: Response) => {
   try {
+    const { phone, code } = req.body;
 
-
-    const {
-      phone,
-      code,
-    } = req.body;
-
-
-
-    if(!phone || !code){
-
-      return sendError(res,{
-        statusCode:400,
-        message:"Phone and OTP are required",
-        code:"OTP_REQUIRED",
+    if (!phone || !code) {
+      return sendError(res, {
+        statusCode: 400,
+        message: "Phone and OTP are required",
+        code: "OTP_REQUIRED",
       });
-
     }
 
-
-
-    const normalizedPhone =
-      normalizePhone(phone);
-
-
-
+    const normalizedPhone = normalizePhone(phone);
 
     /* -----------------------------
        Verify OTP
     ------------------------------ */
 
-    const otpResult =
-      await otpService.verify({
+    const otpResult = await otpService.verify({
+      phone: normalizedPhone,
 
-        phone:
-          normalizedPhone,
+      code,
 
-        code,
+      type: OtpType.LOGIN,
+    });
 
-        type:
-          OtpType.LOGIN,
-
+    if (!otpResult.success) {
+      return sendError(res, {
+        statusCode: 401,
+        message: otpResult.message,
+        code: "OTP_INVALID",
       });
-
-
-
-    if(!otpResult.success){
-
-      return sendError(res,{
-        statusCode:401,
-        message:otpResult.message,
-        code:"OTP_INVALID",
-      });
-
     }
-
-
-
-
-
-
 
     /* -----------------------------
        Find Existing Driver
     ------------------------------ */
 
-    let user =
-      await prisma.user.findUnique({
+    let user = await prisma.user.findUnique({
+      where: {
+        phone: normalizedPhone,
+      },
 
-        where:{
-          phone:
-            normalizedPhone,
-        },
-
-        include:{
-          driverProfile:true,
-        }
-
-      });
-
-
-
-
-
-
+      include: driverProfileInclude,
+    });
 
     /* -----------------------------
        Create New Driver Account
     ------------------------------ */
 
-    if(!user){
+    if (!user) {
+      user = await prisma.user.create({
+        data: {
+          phone: normalizedPhone,
 
+          full_name: "New Driver",
 
-      user =
-        await prisma.user.create({
+          role: UserRole.driver,
 
-          data:{
+          status: UserStatus.ACTIVE,
 
+          phoneVerifiedAt: new Date(),
+        },
 
-            phone:
-              normalizedPhone,
-
-
-            full_name:
-              "New Driver",
-
-
-
-            role:
-              UserRole.driver,
-
-
-            status:
-              UserStatus.ACTIVE,
-
-
-            phoneVerifiedAt:
-              new Date(),
-
-          },
-
-
-          include:{
-            driverProfile:true,
-          }
-
-        });
-
-
+        include: driverProfileInclude,
+      });
     }
-
-
-
-
-
-
 
     /* -----------------------------
        Update Phone Verification
     ------------------------------ */
 
-    if(!user.phoneVerifiedAt){
+    if (!user.phoneVerifiedAt) {
+      user = await prisma.user.update({
+        where: {
+          id: user.id,
+        },
 
+        data: {
+          phoneVerifiedAt: new Date(),
+        },
 
-      user =
-        await prisma.user.update({
-
-          where:{
-            id:user.id,
-          },
-
-
-          data:{
-            phoneVerifiedAt:
-              new Date(),
-          },
-
-
-          include:{
-            driverProfile:true,
-          }
-
-        });
-
-
+        include: driverProfileInclude,
+      });
     }
-
-
-
-
-
-
-
 
     /* -----------------------------
        Check Driver Profile
     ------------------------------ */
 
-    const hasDriverProfile =
-      !!user.driverProfile;
-
-
-
-
-
-
+    const hasDriverProfile = !!user.driverProfile;
 
     /* -----------------------------
        Generate JWT
     ------------------------------ */
 
-    const token =
-      generateToken({
+    const token = generateToken({
+      id: user.id,
 
-        id:
-          user.id,
+      role: user.role,
+    });
 
-        role:
-          user.role,
+    return sendResponse(res, {
+      statusCode: 200,
 
-      });
-
-
-
-
-
-
-
-
-    return sendResponse(res,{
-
-      statusCode:200,
-
-
-      message:
-        hasDriverProfile
+      message: hasDriverProfile
         ? "Driver login successful"
         : "Continue driver onboarding",
 
+      data: {
+        user: userResource(user),
 
+        accessToken: token,
 
-      data:{
+        onboardingRequired: !hasDriverProfile,
 
-
-        user:
-          userResource(user),
-
-
-
-        accessToken:
-          token,
-
-
-
-        onboardingRequired:
-          !hasDriverProfile,
-
-
-
-        nextStep:
-          hasDriverProfile
-          ? "DASHBOARD"
-          : "DRIVER_PROFILE",
-
+        nextStep: hasDriverProfile ? "DASHBOARD" : "DRIVER_PROFILE",
       },
-
-
     });
+  } catch (error: any) {
+    console.error("DRIVER OTP LOGIN ERROR:", error);
 
+    return sendError(res, {
+      statusCode: 500,
 
+      message: error.message || "Driver OTP verification failed",
 
-
-  }catch(error:any){
-
-
-    console.error(
-      "DRIVER OTP LOGIN ERROR:",
-      error
-    );
-
-
-    return sendError(res,{
-
-      statusCode:500,
-
-      message:
-        error.message ||
-        "Driver OTP verification failed",
-
-      code:
-        "DRIVER_LOGIN_FAILED",
-
+      code: "DRIVER_LOGIN_FAILED",
     });
-
-
   }
-
 };
-
 
 /* -----------------------------
    RESEND OTP
 ------------------------------ */
 
-export const resendOtp = async (
-  req: Request,
-  res: Response
-) => {
-
+export const resendOtp = async (req: Request, res: Response) => {
   try {
-
-    const {
-      phone,
-      type = OtpType.LOGIN,
-    } = req.body;
-
-
+    const { phone, type = OtpType.LOGIN } = req.body;
 
     if (!phone) {
-
       return sendError(res, {
-
         statusCode: 400,
 
-        message:
-          "Phone number is required",
+        message: "Phone number is required",
 
-        code:
-          "PHONE_REQUIRED",
-
+        code: "PHONE_REQUIRED",
       });
-
     }
 
-
-
-
-    const normalizedPhone =
-      normalizePhone(phone);
-
-
-
-
+    const normalizedPhone = normalizePhone(phone);
 
     if (!isValidEthiopianPhone(normalizedPhone)) {
-
       return sendError(res, {
-
         statusCode: 400,
 
-        message:
-          "Invalid Ethiopian phone number",
+        message: "Invalid Ethiopian phone number",
 
-        code:
-          "INVALID_PHONE",
-
+        code: "INVALID_PHONE",
       });
-
     }
-
-
-
-
-
-
 
     /*
       Check resend cooldown
@@ -643,331 +361,138 @@ export const resendOtp = async (
       - brute force attempts
     */
 
-    await otpService.checkResendCooldown(
-      normalizedPhone,
-      type
-    );
-
-
-
-
-
-
-
+    await otpService.checkResendCooldown(normalizedPhone, type);
 
     /*
       Create new OTP
     */
 
-    const otp =
-      await otpService.create({
+    const otp = await otpService.create({
+      phone: normalizedPhone,
 
-        phone:
-          normalizedPhone,
+      type,
 
-        type,
+      ipAddress: req.ip,
 
-        ipAddress:
-          req.ip,
-
-        userAgent:
-          req.headers["user-agent"],
-
-      });
-
-
-
-
-
-
-
+      userAgent: req.headers["user-agent"],
+    });
 
     /*
       Send SMS
     */
 
-    const sms =
-      await smsService.sendOtpMessage(
-
-        normalizedPhone,
-
-        otp
-
-      );
-
-
-
-
-
+    const sms = await smsService.sendOtpMessage(normalizedPhone, otp);
 
     if (!sms.success) {
-
-
       return sendError(res, {
-
         statusCode: 500,
 
-        message:
-          "Failed to send OTP SMS",
+        message: "Failed to send OTP SMS",
 
-        code:
-          "SMS_FAILED",
-
+        code: "SMS_FAILED",
       });
-
-
     }
-
-
-
-
-
-
 
     /*
       Mark OTP as sent
     */
 
-    await otpService.markSent(
-
-      normalizedPhone,
-
-      type as OtpType
-
-    );
-
-
-
-
-
-
+    await otpService.markSent(normalizedPhone, type as OtpType);
 
     return sendResponse(res, {
-
       statusCode: 200,
 
-      message:
-        "OTP resent successfully",
+      message: "OTP resent successfully",
 
       data: {
-
-        phone:
-          normalizedPhone,
-
+        phone: normalizedPhone,
       },
-
-
     });
-
-
-
-
-
-
-
-  } catch(error:any) {
-
-
+  } catch (error: any) {
     return sendError(res, {
+      statusCode: error.message?.includes("wait") ? 429 : 400,
 
-      statusCode:
-        error.message?.includes("wait")
-          ? 429
-          : 400,
+      message: error.message || "OTP resend failed",
 
-
-      message:
-        error.message ||
-        "OTP resend failed",
-
-
-      code:
-        "OTP_RESEND_FAILED",
-
-
+      code: "OTP_RESEND_FAILED",
     });
-
-
   }
-
 };
-
-
-
-
-
 
 /* -----------------------------
    GET CURRENT USER (/me)
 ------------------------------ */
 
-export const me = async (
-  req:any,
-  res:Response
-)=>{
-
+export const me = async (req: any, res: Response) => {
   try {
+    const userId = req.user.id;
 
+    const user = await prisma.user.findUnique({
+      where: {
+        id: userId,
+      },
 
-    const userId =
-      req.user.id;
+      include: {
+        managedStation: true,
 
+        ...driverProfileInclude,
+      },
+    });
 
+    if (!user) {
+      return sendError(res, {
+        statusCode: 404,
 
+        message: "User not found",
 
-    const user =
-      await prisma.user.findUnique({
-
-        where:{
-          id:userId,
-        },
-
-
-        include:{
-
-          managedStation:true,
-
-          driverProfile:true,
-
-        },
-
+        code: "USER_NOT_FOUND",
       });
-
-
-
-
-
-
-    if(!user){
-
-
-      return sendError(res,{
-
-        statusCode:404,
-
-        message:
-          "User not found",
-
-        code:
-          "USER_NOT_FOUND",
-
-      });
-
-
     }
-
-
-
-
-
-
 
     /* -----------------------------
        Check Driver Profile
     ------------------------------ */
 
-    const hasDriverProfile =
-      !!user.driverProfile;
+    const hasDriverProfile = !!user.driverProfile;
 
+    return sendResponse(res, {
+      statusCode: 200,
 
+      message: "User fetched successfully",
 
-
-
-
-
-
-    return sendResponse(res,{
-
-      statusCode:200,
-
-      message:
-        "User fetched successfully",
-
-
-
-      data:{
-
-
-        user:
-          userResource(user),
-
-
+      data: {
+        user: userResource(user),
 
         hasDriverProfile,
 
+        onboardingRequired: !hasDriverProfile,
 
-
-        onboardingRequired:
-          !hasDriverProfile,
-
-
-
-        nextStep:
-          hasDriverProfile
-          ? "DASHBOARD"
-          : "DRIVER_PROFILE",
-
-
+        nextStep: hasDriverProfile ? "DASHBOARD" : "DRIVER_PROFILE",
       },
-
-
     });
+  } catch (error: any) {
+    return sendError(res, {
+      statusCode: 500,
 
+      message: error.message || "Failed to fetch user",
 
-
-
-
-  }catch(error:any){
-
-
-    return sendError(res,{
-
-      statusCode:500,
-
-      message:
-        error.message ||
-        "Failed to fetch user",
-
-      code:
-        "FETCH_ME_FAILED",
-
+      code: "FETCH_ME_FAILED",
     });
-
-
   }
-
 };
-
-
-
-
-
-
 
 /* -----------------------------
    LOGOUT
 ------------------------------ */
 
-export const logout = async (
-  _req:Request,
-  res:Response
-)=>{
+export const logout = async (_req: Request, res: Response) => {
+  return sendResponse(res, {
+    statusCode: 200,
 
+    message: "Logged out successfully",
 
-  return sendResponse(res,{
-
-    statusCode:200,
-
-    message:
-      "Logged out successfully",
-
-    data:{
-
-      success:true,
-
+    data: {
+      success: true,
     },
-
   });
-
-
 };

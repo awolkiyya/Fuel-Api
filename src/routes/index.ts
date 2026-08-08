@@ -4,6 +4,7 @@ import onboardingRoute from "../modules/onboarding/onboarding.route";
 import authRoutes from "../modules/auth/auth.routes";
 import userRoutes from "../modules/users/users.routes";
 import driverRoutes from "../modules/drivers/drivers.routes";
+import driverLicenseRoutes from "../modules/drivers/driver-license.routes";
 import vehicleRoutes from "../modules/vehicles/vehicles.routes";
 import commenRoutes from "../modules/commens/commen.routes";
 import stationRoutes from "../modules/stations/routes/stations.routes";
@@ -18,7 +19,6 @@ import publicFuelTransactionRoutes from "../modules/publics/routes/publicfuelTra
 import businessLicenseRoutes from "../modules/business-license/businessLicense.routes";
 
 import aiRoutes from "../modules/ai/ai.routes";
-
 
 const router = Router();
 
@@ -41,6 +41,19 @@ console.log("👤 /drivers routes loaded");
 router.use("/drivers", driverRoutes);
 
 // =========================
+// DRIVER LICENSE MODULE
+// Mounted at /driver/license (singular "driver") to match the
+// existing Flutter app calls: _api.upload("/driver/license/upload")
+// and _api.post("/driver/license"). NOTE this is deliberately NOT
+// nested under /drivers (plural) — if you'd rather keep one
+// consistent prefix, update the Flutter controller's endpoint
+// strings instead and mount this under driverRoutes as
+// driverRoutes.use("/license", driverLicenseRoutes).
+// =========================
+console.log("🪪 /driver/license routes loaded");
+router.use("/driver/license", driverLicenseRoutes);
+
+// =========================
 // VEHICLE MODULE
 // =========================
 console.log("🚗 /vehicles routes loaded");
@@ -51,7 +64,6 @@ router.use("/vehicles", vehicleRoutes);
 // =========================
 console.log("🧭 /onboarding routes loaded");
 router.use("/onboarding", onboardingRoute);
-
 
 // =========================
 // STATION MODULE
@@ -71,14 +83,11 @@ router.use("/commens", commenRoutes);
 console.log("🧭 /system routes loaded");
 router.use("/system", systemRoutes);
 
-
 // camera related route
 console.log("🧭 /cameras routes loaded");
 router.use("/cameras", cameraRoutes);
 
-
-// business license 
-// camera related route
+// business license
 console.log("🧭 /license routes loaded");
 router.use("/license", businessLicenseRoutes);
 
@@ -87,9 +96,9 @@ router.use("/license", businessLicenseRoutes);
 // =========================
 
 console.log("🧭 /ai routes loaded");
-router.use("/ai",aiRoutes);
+router.use("/ai", aiRoutes);
 
-// here is all public user side routes 
+// here is all public user side routes
 // camera related route
 console.log("🧭 /public/stations routes loaded");
 router.use("/public/stations", publicSationsRoutes);
@@ -98,8 +107,6 @@ router.use("/public/fuelrequests", publicfuelRequestRoutes);
 router.use("/public/fueltransactions", publicFuelTransactionRoutes);
 console.log("🧭 /public/license routes loaded");
 router.use("/public/license", publicLicenseRoutes);
-
-
 
 export default router;
 

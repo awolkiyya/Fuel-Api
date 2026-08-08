@@ -1,57 +1,111 @@
 import { buildMeta } from "../../utils/pagination";
 import { vehicleRepository } from "./vehicles.repository";
-import { CreateVehicleDTO, UpdateVehicleDTO } from "./vehicles.types";
+import { CreateVehicleDTO, UpdateVehicleDTO, UpdateVehicleInput } from "./vehicles.types";
 
 export const vehicleService = {
   // =====================================================
   // CREATE VEHICLE
   // =====================================================
-  createVehicle: async (data: CreateVehicleDTO) => {
-    const existing = await vehicleRepository.findDuplicate({
-      plateNumber: data.plateNumber,
-      vin: data.vin,
-      userId: data.userId,
-    });
-
+  createVehicle: async (
+    data: CreateVehicleDTO,
+    documentUrl: string
+  ) => {
+  
+    // =====================================================
+    // DUPLICATE CHECK
+    // =====================================================
+  
+    const existing =
+      await vehicleRepository.findDuplicate({
+        plateNumber: data.plateNumber,
+        vin: data.vin,
+        userId: data.userId,
+      });
+  
     if (existing) {
       const error: any = new Error(
         "Vehicle already exists with this plate number or VIN"
       );
+  
       error.code = "VEHICLE_ALREADY_EXISTS";
       error.statusCode = 409;
+  
       throw error;
     }
-
-    const vehicleType = await vehicleRepository.findVehicleTypeById(
-      data.vehicleTypeId
-    );
-
+  
+  
+    // =====================================================
+    // VEHICLE TYPE
+    // =====================================================
+  
+    const vehicleType =
+      await vehicleRepository.findVehicleTypeById(
+        data.vehicleTypeId
+      );
+  
     if (!vehicleType) {
-      const error: any = new Error("Invalid vehicle type");
+      const error: any =
+        new Error("Invalid vehicle type");
+  
       error.code = "INVALID_VEHICLE_TYPE";
       error.statusCode = 400;
+  
       throw error;
     }
-
-    const allowedFuelTypes = vehicleType.allowedFuelTypes ?? [];
-
-    const isFuelAllowed = allowedFuelTypes.some(
-      (f) => f.id === data.fuelTypeId
-    );
-
+  
+  
+    // =====================================================
+    // FUEL TYPE VALIDATION
+    // =====================================================
+  
+    const allowedFuelTypes =
+      vehicleType.allowedFuelTypes ?? [];
+  
+    const isFuelAllowed =
+      allowedFuelTypes.some(
+        (fuel) =>
+          fuel.id === data.fuelTypeId
+      );
+  
     if (!isFuelAllowed) {
+  
       const error: any = new Error(
         "Fuel type not allowed for this vehicle type"
       );
+  
       error.code = "INVALID_FUEL_TYPE";
       error.statusCode = 400;
+  
       throw error;
     }
-
-    return vehicleRepository.create({
-      ...data,
-      plateNumber: data.plateNumber.toUpperCase().trim(),
-    });
+  
+  
+    // =====================================================
+    // CREATE VEHICLE + DOCUMENT
+    // =====================================================
+  
+    return vehicleRepository.create(
+      {
+        ...data,
+  
+        plateNumber:
+          data.plateNumber
+            .toUpperCase()
+            .trim(),
+  
+        vin:
+          data.vin
+            .toUpperCase()
+            .trim(),
+  
+        regionCode:
+          data.regionCode
+            .toUpperCase()
+            .trim(),
+      },
+  
+      documentUrl
+    );
   },
 
   // =====================================================
@@ -122,25 +176,91 @@ export const vehicleService = {
   // =====================================================
   // UPDATE VEHICLE (SAFE + VALIDATION)
   // =====================================================
-  updateVehicle: async (id: string, userId: string, data: UpdateVehicleDTO) => {
-    const existing = await vehicleRepository.findById(id);
-
+  
+  updateVehicle: async (
+    id: string,
+    userId: string,
+    input: UpdateVehicleInput
+  ) => {
+    // ===================================================
+    // EXTRACT INPUT
+    // ===================================================
+  
+    const {
+      data,
+      document,
+      ownershipNumber,
+    } = input;
+  
+    // ===================================================
+    // FIND VEHICLE
+    // ===================================================
+  
+    const existing =
+      await vehicleRepository.findById(
+        id,
+        userId
+      );
+  
     if (!existing) {
-      const error: any = new Error("Vehicle not found");
+      const error: any = new Error(
+        "Vehicle not found"
+      );
+  
       error.code = "VEHICLE_NOT_FOUND";
       error.statusCode = 404;
+  
       throw error;
     }
-
+  
+    // ===================================================
+    // OWNERSHIP CHECK
+    // ===================================================
+  
     if (existing.userId !== userId) {
-      const error: any = new Error("Unauthorized update attempt");
-      error.code = "UNAUTHORIZED_VEHICLE_UPDATE";
+      const error: any = new Error(
+        "Unauthorized update attempt"
+      );
+  
+      error.code =
+        "UNAUTHORIZED_VEHICLE_UPDATE";
+  
       error.statusCode = 403;
+  
       throw error;
     }
-
-    return vehicleRepository.update(id, data);
+  
+    // ===================================================
+    // UPDATE VEHICLE DATA
+    // ===================================================
+  
+    await vehicleRepository.update(
+      id,
+      data
+    );
+  
+    // ===================================================
+    // UPDATE OWNERSHIP DOCUMENT
+    // ===================================================
+  
+    if (document) {
+      await vehicleRepository.updateOwnershipDocument(
+        id,
+        document.path,
+        ownershipNumber
+      );
+    }
+  
+    // ===================================================
+    // RETURN UPDATED VEHICLE
+    // ===================================================
+  
+    return vehicleRepository.findById(
+      id,
+      userId
+    );
   },
+  
 
   // =====================================================
   // DELETE VEHICLE (SAFE)

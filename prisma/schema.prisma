@@ -201,6 +201,20 @@ enum EquipmentStatus {
   MAINTENANCE
 }
 
+enum DriverLicenseStatus {
+  PENDING
+  ACTIVE
+  EXPIRED
+  REJECTED
+}
+
+
+enum VehicleOwnershipStatus {
+  PENDING
+  VERIFIED
+  REJECTED
+}
+
 
 
 
@@ -246,23 +260,75 @@ model User {
 
   notifications Notification[]
    fuelAttendantTransactions Transaction[] @relation("FuelAttendantTransactions")
+
 }
 
 
 model DriverProfile {
+
   id String @id @default(uuid())
 
   userId String @unique
-  user   User   @relation(fields: [userId], references: [id])
 
-  age           Int
-  nationalId    String    @unique
-  licenseNumber String    @unique
-  licenseExpiry DateTime?
-  isVerified    Boolean   @default(false)
+  user User  @relation(fields: [userId],references: [id], onDelete: Cascade)
+
+
+  age Int
+
+  nationalId String @unique
+
+
+  license DriverLicense?
+
 
   createdAt DateTime @default(now())
-  updatedAt DateTime @default(now()) @updatedAt
+
+  updatedAt DateTime @updatedAt
+
+}
+
+
+model DriverLicense {
+
+  id String @id @default(uuid())
+
+
+  driverId String @unique
+
+  driver DriverProfile @relation(fields: [driverId],references: [id],onDelete: Cascade)
+
+
+  licenseNumber String @unique
+
+
+  documentUrl String?
+
+
+  issuedAt DateTime?
+
+
+  expiryDate DateTime?
+
+
+
+  status DriverLicenseStatus @default(PENDING)
+
+
+
+  verifiedBy String?
+
+  verifiedAt DateTime?
+
+
+
+  rejectionReason String?
+
+
+
+  createdAt DateTime @default(now())
+
+  updatedAt DateTime @updatedAt
+
 }
 
 
@@ -383,38 +449,73 @@ model VehicleType {
 
 model Vehicle {
   id            String @id @default(uuid())
+
   userId        String
   vehicleTypeId String
+  fuelTypeId    String
 
-  regionCode String // e.g. "AA", "OR"
-
+  regionCode String
 
   plateNumber String @unique
   vin         String @unique
 
   fuelCapacity Float
 
-  // ================= STATUS SYSTEM =================
+  // ================= STATUS =================
+
   isVerified Boolean @default(false)
 
-  isActive  Boolean   @default(true) // 🚗 usable or disabled
-  isDeleted Boolean   @default(false) // 🗑 soft delete flag
+  isActive Boolean @default(true)
+  isDeleted Boolean @default(false)
   deletedAt DateTime?
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
   // ================= RELATIONS =================
-  user        User        @relation(fields: [userId], references: [id])
-  vehicleType VehicleType @relation(fields: [vehicleTypeId], references: [id])
 
-  fuelTypeId String
-  fuelType   FuelType @relation(fields: [fuelTypeId], references: [id])
+  user User @relation(fields: [userId],references: [id])
+
+  vehicleType VehicleType @relation(fields: [vehicleTypeId],references: [id])
+
+  fuelType FuelType @relation(fields: [fuelTypeId],references: [id])
+
+  // 1 : 1
+  ownershipDocument VehicleOwnershipDocument?
 
   fuelRequests FuelRequest[]
   transactions Transaction[]
 }
 
+
+model VehicleOwnershipDocument {
+  id String @id @default(uuid())
+
+  // ================= VEHICLE =================
+
+  vehicleId String @unique
+
+  vehicle Vehicle @relation(fields: [vehicleId],references: [id],onDelete: Cascade)
+
+  // ================= DOCUMENT =================
+
+  ownershipNumber String?
+
+  documentUrl String
+
+  // ================= VERIFICATION =================
+
+  status VehicleOwnershipStatus @default(PENDING)
+
+  verifiedBy String?
+  verifiedAt DateTime?
+  rejectionReason String?
+
+  // ================= TIMESTAMPS =================
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
 model BusinessLicense {
   id String @id @default(uuid())
 
@@ -1064,21 +1165,21 @@ model Organization {
   id String @id @default(uuid())
 
 
-  // =========================
+  // =====================================================
   // BASIC IDENTITY
-  // =========================
+  // =====================================================
 
   name String
 
   type OrgType
 
+  registrationNumber String? @unique
 
-  registrationNumber String?@unique
 
 
-  // =========================
+  // =====================================================
   // CONTACT INFORMATION
-  // =========================
+  // =====================================================
 
   contactPerson String?
 
@@ -1090,57 +1191,41 @@ model Organization {
 
 
 
-  // =========================
+  // =====================================================
   // STATUS
-  // =========================
+  // =====================================================
 
   status OrgStatus @default(ACTIVE)
 
 
 
-  // =========================
-  // FUEL ACCOUNT CONTROL
-  // =========================
+  // =====================================================
+  // FUEL ACCESS CONTROL
+  // =====================================================
 
   allowFuelAccess Boolean @default(true)
 
 
-  // Credit based fueling
-  creditLimit Float @default(0)
+  // Organization can use quota-based fueling
+  quotaEnabled Boolean @default(true)
 
 
-  availableCredit Float @default(0)
-
-
-
-  // =========================
-  // QUOTA POLICY
-  // =========================
-
-  allowQuotaFuel Boolean @default(true)
-
-
-  dailyQuotaLiters Float?
-
-
-  monthlyQuotaLiters Float?
-
-
+  // Maximum single fueling operation
   maxTransactionLiters Float @default(5000)
 
 
 
-  // =========================
+  // =====================================================
   // API / INTEGRATION
-  // =========================
+  // =====================================================
 
   apiKey String? @unique
 
 
 
-  // =========================
+  // =====================================================
   // RELATIONS
-  // =========================
+  // =====================================================
 
   fuelQuotas FuelQuota[]
 
@@ -1148,14 +1233,23 @@ model Organization {
 
 
 
-  // =========================
+  // =====================================================
   // AUDIT
-  // =========================
+  // =====================================================
 
   createdAt DateTime @default(now())
 
-
   updatedAt DateTime @updatedAt
+
+
+
+  // =====================================================
+  // INDEXES
+  // =====================================================
+
+  @@index([status])
+
+  @@index([type])
 
 }
 
@@ -1164,18 +1258,29 @@ model FuelQuota {
   id String @id @default(uuid())
 
 
-  // =====================
+  // =====================================================
   // ORGANIZATION
-  // =====================
+  // =====================================================
 
   organizationId String
 
   organization Organization @relation(fields: [organizationId], references: [id])
 
 
-  // =====================
-  // PERIOD
-  // =====================
+
+  // =====================================================
+  // FUEL TYPE
+  // =====================================================
+
+  fuelTypeId String
+
+  fuelType FuelType @relation(fields: [fuelTypeId], references: [id])
+
+
+
+  // =====================================================
+  // QUOTA PERIOD
+  // =====================================================
 
   periodType QuotaPeriodType
 
@@ -1184,45 +1289,52 @@ model FuelQuota {
   endDate DateTime
 
 
-  // =====================
+
+  // =====================================================
   // ALLOCATION
-  // =====================
+  // =====================================================
 
   allocatedLiters Float
 
   consumedLiters Float @default(0)
 
-  remainingLiters Float
 
 
-  // =====================
-  // FUEL TYPE
-  // =====================
+  // =====================================================
+  // COMMERCIAL OFFICE CONTROL
+  // =====================================================
 
-  fuelTypeId String
+  assignedByUserId String?
 
-  fuelType FuelType @relation(fields: [fuelTypeId], references: [id])
+  approvedAt DateTime?
+
+  referenceNumber String? @unique
+
+  remarks String?
 
 
-  // =====================
+
+  // =====================================================
   // STATUS
-  // =====================
+  // =====================================================
 
   status QuotaStatus @default(ACTIVE)
 
 
-  // =====================
+
+  // =====================================================
   // AUDIT
-  // =====================
+  // =====================================================
 
   createdAt DateTime @default(now())
 
   updatedAt DateTime @updatedAt
 
 
-  // =====================
+
+  // =====================================================
   // INDEXES
-  // =====================
+  // =====================================================
 
   @@index([organizationId])
 

@@ -1,4 +1,5 @@
 import { Router } from "express";
+
 import {
   createVehicle,
   getVehicles,
@@ -12,6 +13,8 @@ import {
 
 import { authMiddleware } from "../../middlewares/auth.middleware";
 import { validate } from "../../middlewares/validate.middleware";
+import upload from "../../middlewares/upload.middleware";
+
 import {
   createVehicleSchema,
   updateVehicleSchema,
@@ -20,11 +23,26 @@ import {
 const router = Router();
 
 // =====================================================
-// CREATE
+// CREATE VEHICLE
 // =====================================================
+// multipart/form-data
+//
+// Fields:
+// - plateNumber
+// - vin
+// - fuelCapacity
+// - vehicleTypeId
+// - fuelTypeId
+// - regionCode
+//
+// File:
+// - document
+// =====================================================
+
 router.post(
   "/",
   authMiddleware,
+  upload.single("document"),
   validate(createVehicleSchema),
   createVehicle
 );
@@ -32,39 +50,66 @@ router.post(
 // =====================================================
 // READ
 // =====================================================
-router.get("/", authMiddleware, getVehicles);
-router.get("/me", authMiddleware, getMyVehicles);
-router.get("/:id", authMiddleware, getVehicleById);
+
+router.get(
+  "/",
+  authMiddleware,
+  getVehicles
+);
+
+router.get(
+  "/me",
+  authMiddleware,
+  getMyVehicles
+);
+
+router.get(
+  "/:id",
+  authMiddleware,
+  getVehicleById
+);
 
 // =====================================================
-// UPDATE (business data)
+// UPDATE VEHICLE
 // =====================================================
+// Document is OPTIONAL.
+//
+// No document:
+//   → update vehicle fields only
+//   → keep existing ownership document
+//
+// New document:
+//   → replace ownership document
+//   → reset document verification to PENDING
+// =====================================================
+
 router.put(
   "/:id",
   authMiddleware,
+  upload.single("document"),
   validate(updateVehicleSchema),
   updateVehicle
 );
 
 // =====================================================
-// LIFECYCLE ACTIONS
+// LIFECYCLE
 // =====================================================
 
-// deactivate
+// Deactivate
 router.patch(
   "/:id/deactivate",
   authMiddleware,
   deactivateVehicle
 );
 
-// activate
+// Activate
 router.patch(
   "/:id/activate",
   authMiddleware,
   activateVehicle
 );
 
-// delete (soft delete)
+// Soft delete
 router.delete(
   "/:id",
   authMiddleware,

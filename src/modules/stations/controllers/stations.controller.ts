@@ -849,11 +849,15 @@ export const addNozzle = async (
 
 
 
+    // ======================================
+    // VALIDATION
+    // ======================================
+
     if (!number || !fuelTypeId) {
 
       return res.status(400).json({
 
-        success:false,
+        success: false,
 
         message:
           "number and fuelTypeId are required"
@@ -864,6 +868,10 @@ export const addNozzle = async (
 
 
 
+    // ======================================
+    // VERIFY STATION EXISTS
+    // ======================================
+
     const station =
       await stationRepository.findById(stationId)
 
@@ -873,9 +881,9 @@ export const addNozzle = async (
 
       return res.status(404).json({
 
-        success:false,
+        success: false,
 
-        message:"Station not found"
+        message: "Station not found"
 
       })
 
@@ -885,24 +893,28 @@ export const addNozzle = async (
 
 
 
+    // ======================================
+    // VERIFY DISPENSER EXISTS
+    // ======================================
+
     const dispenser =
       await prisma.dispenser.findUnique({
 
-        where:{
-          id:dispenserId
+        where: {
+          id: dispenserId
         }
 
       })
 
 
 
-    if(!dispenser){
+    if (!dispenser) {
 
       return res.status(404).json({
 
-        success:false,
+        success: false,
 
-        message:"Dispenser not found"
+        message: "Dispenser not found"
 
       })
 
@@ -919,20 +931,21 @@ export const addNozzle = async (
     const fuelType =
       await prisma.fuelType.findUnique({
 
-        where:{
-          id:fuelTypeId
+        where: {
+          id: fuelTypeId
         }
 
       })
 
 
-    if(!fuelType){
+
+    if (!fuelType) {
 
       return res.status(404).json({
 
-        success:false,
+        success: false,
 
-        message:"Fuel type not found"
+        message: "Fuel type not found"
 
       })
 
@@ -944,16 +957,17 @@ export const addNozzle = async (
 
     // ======================================
     // DUPLICATE NOZZLE NUMBER
+    // SAME PUMP CANNOT HAVE SAME NUMBER
     // ======================================
 
     const existingNozzle =
       await prisma.nozzle.findFirst({
 
-        where:{
+        where: {
 
           dispenserId,
 
-          number:Number(number)
+          number: Number(number)
 
         }
 
@@ -961,50 +975,14 @@ export const addNozzle = async (
 
 
 
-    if(existingNozzle){
+    if (existingNozzle) {
 
       return res.status(409).json({
 
-        success:false,
+        success: false,
 
         message:
-        `Nozzle number ${number} already exists`
-
-      })
-
-    }
-
-
-
-
-
-    // ======================================
-    // DUPLICATE FUEL TYPE
-    // ======================================
-
-    const duplicateFuelType =
-      await prisma.nozzle.findFirst({
-
-        where:{
-
-          dispenserId,
-
-          fuelTypeId
-
-        }
-
-      })
-
-
-
-    if(duplicateFuelType){
-
-      return res.status(409).json({
-
-        success:false,
-
-        message:
-        `${fuelType.name} already assigned`
+          `Nozzle number ${number} already exists on this pump`
 
       })
 
@@ -1016,26 +994,27 @@ export const addNozzle = async (
 
     // ======================================
     // CREATE NOZZLE
+    // SAME FUEL TYPE IS ALLOWED
     // ======================================
 
     const nozzle =
       await prisma.nozzle.create({
 
-        data:{
+        data: {
 
           dispenserId,
 
-          number:Number(number),
+          number: Number(number),
 
           fuelTypeId,
 
-          status:"ACTIVE"
+          status: "ACTIVE"
 
         },
 
-        include:{
+        include: {
 
-          fuelType:true
+          fuelType: true
 
         }
 
@@ -1047,25 +1026,25 @@ export const addNozzle = async (
 
     return res.status(201).json({
 
-      success:true,
+      success: true,
 
-      message:"Nozzle added successfully",
+      message: "Nozzle added successfully",
 
-      data:nozzle
+      data: nozzle
 
     })
 
 
 
-  } catch(err:any){
+  } catch (err: any) {
 
 
     return res.status(500).json({
 
-      success:false,
+      success: false,
 
       message:
-      err.message || "Internal server error"
+        err.message || "Internal server error"
 
     })
 
