@@ -126,9 +126,11 @@ export const driverRepository = {
       where,
       skip,
       take: limit,
+  
       orderBy: {
         createdAt: "desc",
       },
+  
       select: {
         id: true,
         full_name: true,
@@ -137,27 +139,35 @@ export const driverRepository = {
         profile_image: true,
         status: true,
         createdAt: true,
-
+  
         driverProfile: {
           select: {
             age: true,
             nationalId: true,
-            licenseNumber: true,
-            licenseExpiry: true,
-            isVerified: true,
+  
+            license: {
+              select: {
+                id: true,
+                licenseNumber: true,
+                documentUrl: true,
+                issuedAt: true,
+                expiryDate: true,
+                status: true,
+                verifiedBy: true,
+                verifiedAt: true,
+                rejectionReason: true,
+              },
+            },
           },
         },
-
-        /* VEHICLES */
+  
         vehicles: {
           select: {
             id: true,
             plateNumber: true,
           },
         },
-
-        /* RISK (LATEST ONLY) — fine here since the list/table only
-           ever shows the current risk level per row, not history. */
+  
         risks: {
           select: {
             id: true,
@@ -174,7 +184,6 @@ export const driverRepository = {
       },
     })
   },
-
   // COUNT DRIVERS
   // Takes the same pre-built `where` as findAll — see buildDriverWhere.
   count: async ({ where }: { where: any }) => {

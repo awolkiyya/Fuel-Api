@@ -15,8 +15,8 @@ import publicvehiclesRoutes from "../modules/publics/routes/driverVehicle.routes
 import publicfuelRequestRoutes from "../modules/publics/routes/fuelRequest.route";
 import publicLicenseRoutes from "../modules/publics/routes/publicLicenseRoutes";
 import publicFuelTransactionRoutes from "../modules/publics/routes/publicfuelTransactionRoutes";
-
 import businessLicenseRoutes from "../modules/business-license/businessLicense.routes";
+import organizationRoutes from "../modules/organizations/organizations.routes";
 
 import aiRoutes from "../modules/ai/ai.routes";
 
@@ -90,6 +90,13 @@ router.use("/cameras", cameraRoutes);
 // business license
 console.log("🧭 /license routes loaded");
 router.use("/license", businessLicenseRoutes);
+
+
+// =========================
+// ORGANIZATION MODULE
+// =========================
+console.log("🏢 /organizations routes loaded");
+router.use("/organizations", organizationRoutes);
 
 // =========================
 // AI MODULE
