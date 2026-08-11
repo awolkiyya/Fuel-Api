@@ -280,13 +280,19 @@ model DriverProfile {
 
   user User  @relation(fields: [userId],references: [id], onDelete: Cascade)
 
-
   age Int
 
   nationalId String @unique
 
 
   license DriverLicense?
+
+
+   // =====================================================
+  // DRIVER TRUST / VERIFICATION
+  // =====================================================
+
+  isVerified Boolean @default(false)
 
 
   createdAt DateTime @default(now())
