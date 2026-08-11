@@ -5,7 +5,6 @@ import type {
   UpdateOrganizationInput,
 } from "./organizations.schema";
 
-
 // =====================================================
 // TYPES
 // =====================================================
@@ -16,13 +15,59 @@ export interface OrganizationListParams {
   limit: number;
 }
 
+// =====================================================
+// QUOTA SELECT
+// =====================================================
+//
+// Lightweight quota representation returned with
+// organization data.
+//
+// =====================================================
+
+const organizationQuotaSelect = {
+  id: true,
+
+  organizationId: true,
+
+  fuelTypeId: true,
+
+  periodType: true,
+
+  startDate: true,
+
+  endDate: true,
+
+  allocatedLiters: true,
+
+  consumedLiters: true,
+
+  status: true,
+
+  assignedByUserId: true,
+
+  referenceNumber: true,
+
+  remarks: true,
+
+  approvedAt: true,
+
+  createdAt: true,
+
+  updatedAt: true,
+
+  fuelType: {
+    select: {
+      id: true,
+      name: true,
+    },
+  },
+} as const;
 
 // =====================================================
 // ORGANIZATION REPOSITORY
 // =====================================================
 
 export const organizationRepository = {
-
   // ===================================================
   // CREATE
   // ===================================================
@@ -33,6 +78,7 @@ export const organizationRepository = {
     return prisma.organization.create({
       data: {
         name: data.name,
+
         type: data.type,
 
         registrationNumber:
@@ -65,58 +111,21 @@ export const organizationRepository = {
         apiKey:
           data.apiKey ?? null,
       },
-    });
-  },
 
+      include: {
+        fuelQuotas: {
+          orderBy: [
+            {
+              startDate: "desc",
+            },
+            {
+              createdAt: "desc",
+            },
+          ],
 
-  // ===================================================
-  // FIND MANY
-  // ===================================================
-
-  findMany: async ({
-    where,
-    skip,
-    limit,
-  }: OrganizationListParams) => {
-    return prisma.organization.findMany({
-      where,
-
-      skip,
-
-      take: limit,
-
-      orderBy: {
-        createdAt: "desc",
-      },
-
-      select: {
-        id: true,
-
-        name: true,
-
-        type: true,
-
-        registrationNumber: true,
-
-        contactPerson: true,
-
-        phone: true,
-
-        email: true,
-
-        address: true,
-
-        status: true,
-
-        allowFuelAccess: true,
-
-        requiresQuota: true,
-
-        maxTransactionLiters: true,
-
-        createdAt: true,
-
-        updatedAt: true,
+          select:
+            organizationQuotaSelect,
+        },
 
         _count: {
           select: {
@@ -129,6 +138,128 @@ export const organizationRepository = {
     });
   },
 
+  // ===================================================
+  // FIND MANY
+  // ===================================================
+
+  findMany: async ({
+    where,
+    skip,
+    limit,
+  }: OrganizationListParams) => {
+    return prisma.organization.findMany({
+      where,
+  
+      skip,
+  
+      take: limit,
+  
+      orderBy: {
+        createdAt: "desc",
+      },
+  
+      select: {
+        id: true,
+  
+        name: true,
+  
+        type: true,
+  
+        registrationNumber: true,
+  
+        contactPerson: true,
+  
+        phone: true,
+  
+        email: true,
+  
+        address: true,
+  
+        status: true,
+  
+        allowFuelAccess: true,
+  
+        requiresQuota: true,
+  
+        maxTransactionLiters: true,
+  
+        createdAt: true,
+  
+        updatedAt: true,
+  
+        // =================================================
+        // QUOTA LIST
+        // =================================================
+  
+        fuelQuotas: {
+          orderBy: [
+            {
+              startDate: "desc",
+            },
+            {
+              createdAt: "desc",
+            },
+          ],
+  
+          select: {
+            id: true,
+  
+            organizationId: true,
+  
+            fuelTypeId: true,
+  
+            periodType: true,
+  
+            startDate: true,
+  
+            endDate: true,
+  
+            allocatedLiters: true,
+  
+            consumedLiters: true,
+  
+            status: true,
+  
+            assignedByUserId: true,
+  
+            referenceNumber: true,
+  
+            remarks: true,
+  
+            approvedAt: true,
+  
+            createdAt: true,
+  
+            updatedAt: true,
+  
+            // ---------------------------------------------
+            // FUEL TYPE
+            // ---------------------------------------------
+  
+            fuelType: {
+              select: {
+                id: true,
+  
+                name: true,
+              },
+            },
+          },
+        },
+  
+        // =================================================
+        // COUNTS
+        // =================================================
+  
+        _count: {
+          select: {
+            fuelQuotas: true,
+  
+            fuelTransactions: true,
+          },
+        },
+      },
+    });
+  },
 
   // ===================================================
   // COUNT
@@ -141,7 +272,6 @@ export const organizationRepository = {
       where,
     });
   },
-
 
   // ===================================================
   // FIND BY ID
@@ -186,6 +316,28 @@ export const organizationRepository = {
 
         updatedAt: true,
 
+        // =================================================
+        // ORGANIZATION QUOTAS
+        // =================================================
+
+        fuelQuotas: {
+          orderBy: [
+            {
+              startDate: "desc",
+            },
+            {
+              createdAt: "desc",
+            },
+          ],
+
+          select:
+            organizationQuotaSelect,
+        },
+
+        // =================================================
+        // COUNTS
+        // =================================================
+
         _count: {
           select: {
             fuelQuotas: true,
@@ -197,7 +349,6 @@ export const organizationRepository = {
     });
   },
 
-
   // ===================================================
   // UPDATE
   // ===================================================
@@ -206,25 +357,37 @@ export const organizationRepository = {
     id: string,
     data: UpdateOrganizationInput,
   ) => {
-
-    const updateData: Record<string, unknown> = {};
+    const updateData: Record<
+      string,
+      unknown
+    > = {};
 
     if (data.name !== undefined) {
-      updateData.name = data.name;
+      updateData.name =
+        data.name;
     }
 
     if (data.type !== undefined) {
-      updateData.type = data.type;
+      updateData.type =
+        data.type;
     }
 
-    if (data.registrationNumber !== undefined) {
+    if (
+      data.registrationNumber !==
+      undefined
+    ) {
       updateData.registrationNumber =
-        data.registrationNumber ?? null;
+        data.registrationNumber ??
+        null;
     }
 
-    if (data.contactPerson !== undefined) {
+    if (
+      data.contactPerson !==
+      undefined
+    ) {
       updateData.contactPerson =
-        data.contactPerson ?? null;
+        data.contactPerson ??
+        null;
     }
 
     if (data.phone !== undefined) {
@@ -243,20 +406,30 @@ export const organizationRepository = {
     }
 
     if (data.status !== undefined) {
-      updateData.status = data.status;
+      updateData.status =
+        data.status;
     }
 
-    if (data.allowFuelAccess !== undefined) {
+    if (
+      data.allowFuelAccess !==
+      undefined
+    ) {
       updateData.allowFuelAccess =
         data.allowFuelAccess;
     }
 
-    if (data.requiresQuota !== undefined) {
+    if (
+      data.requiresQuota !==
+      undefined
+    ) {
       updateData.requiresQuota =
         data.requiresQuota;
     }
 
-    if (data.maxTransactionLiters !== undefined) {
+    if (
+      data.maxTransactionLiters !==
+      undefined
+    ) {
       updateData.maxTransactionLiters =
         data.maxTransactionLiters;
     }
@@ -272,9 +445,32 @@ export const organizationRepository = {
       },
 
       data: updateData,
+
+      include: {
+        fuelQuotas: {
+          orderBy: [
+            {
+              startDate: "desc",
+            },
+            {
+              createdAt: "desc",
+            },
+          ],
+
+          select:
+            organizationQuotaSelect,
+        },
+
+        _count: {
+          select: {
+            fuelQuotas: true,
+
+            fuelTransactions: true,
+          },
+        },
+      },
     });
   },
-
 
   // ===================================================
   // UPDATE STATUS
@@ -292,9 +488,32 @@ export const organizationRepository = {
       data: {
         status: status as any,
       },
+
+      include: {
+        fuelQuotas: {
+          orderBy: [
+            {
+              startDate: "desc",
+            },
+            {
+              createdAt: "desc",
+            },
+          ],
+
+          select:
+            organizationQuotaSelect,
+        },
+
+        _count: {
+          select: {
+            fuelQuotas: true,
+
+            fuelTransactions: true,
+          },
+        },
+      },
     });
   },
-
 
   // ===================================================
   // UPDATE FUEL ACCESS
@@ -312,9 +531,32 @@ export const organizationRepository = {
       data: {
         allowFuelAccess,
       },
+
+      include: {
+        fuelQuotas: {
+          orderBy: [
+            {
+              startDate: "desc",
+            },
+            {
+              createdAt: "desc",
+            },
+          ],
+
+          select:
+            organizationQuotaSelect,
+        },
+
+        _count: {
+          select: {
+            fuelQuotas: true,
+
+            fuelTransactions: true,
+          },
+        },
+      },
     });
   },
-
 
   // ===================================================
   // UPDATE FUEL POLICY
@@ -327,16 +569,22 @@ export const organizationRepository = {
       maxTransactionLiters?: number;
     },
   ) => {
+    const updateData: Record<
+      string,
+      unknown
+    > = {};
 
-    const updateData: Record<string, unknown> = {};
-
-    if (data.requiresQuota !== undefined) {
+    if (
+      data.requiresQuota !==
+      undefined
+    ) {
       updateData.requiresQuota =
         data.requiresQuota;
     }
 
     if (
-      data.maxTransactionLiters !== undefined
+      data.maxTransactionLiters !==
+      undefined
     ) {
       updateData.maxTransactionLiters =
         data.maxTransactionLiters;
@@ -348,9 +596,32 @@ export const organizationRepository = {
       },
 
       data: updateData,
+
+      include: {
+        fuelQuotas: {
+          orderBy: [
+            {
+              startDate: "desc",
+            },
+            {
+              createdAt: "desc",
+            },
+          ],
+
+          select:
+            organizationQuotaSelect,
+        },
+
+        _count: {
+          select: {
+            fuelQuotas: true,
+
+            fuelTransactions: true,
+          },
+        },
+      },
     });
   },
-
 
   // ===================================================
   // DELETE
@@ -365,7 +636,6 @@ export const organizationRepository = {
       },
     });
   },
-
 
   // ===================================================
   // EXISTS
@@ -385,9 +655,10 @@ export const organizationRepository = {
         },
       });
 
-    return Boolean(organization);
+    return Boolean(
+      organization,
+    );
   },
-
 
   // ===================================================
   // FIND BY REGISTRATION NUMBER
@@ -409,10 +680,13 @@ export const organizationRepository = {
         registrationNumber: true,
 
         status: true,
+
+        allowFuelAccess: true,
+
+        requiresQuota: true,
       },
     });
   },
-
 
   // ===================================================
   // FIND BY API KEY
@@ -424,6 +698,30 @@ export const organizationRepository = {
     return prisma.organization.findUnique({
       where: {
         apiKey,
+      },
+
+      include: {
+        fuelQuotas: {
+          orderBy: [
+            {
+              startDate: "desc",
+            },
+            {
+              createdAt: "desc",
+            },
+          ],
+
+          select:
+            organizationQuotaSelect,
+        },
+
+        _count: {
+          select: {
+            fuelQuotas: true,
+
+            fuelTransactions: true,
+          },
+        },
       },
     });
   },

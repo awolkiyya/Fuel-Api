@@ -30,8 +30,16 @@ const organizationListSelect = {
   name: true,
   type: true,
   status: true,
+
+  // Can this organization receive fuel?
   allowFuelAccess: true,
-  quotaEnabled: true,
+
+  // Does this organization require
+  // an active quota before fueling?
+  requiresQuota: true,
+
+  // Maximum quantity allowed
+  // in one fuel transaction.
   maxTransactionLiters: true,
 } as const;
 
@@ -54,29 +62,38 @@ export const quotaRepository = {
   ) => {
     return prisma.fuelQuota.create({
       data: {
-        organizationId: data.organizationId,
+        organizationId:
+          data.organizationId,
 
-        fuelTypeId: data.fuelTypeId,
+        fuelTypeId:
+          data.fuelTypeId,
 
-        periodType: data.periodType,
+        periodType:
+          data.periodType,
 
-        startDate: data.startDate,
+        startDate:
+          data.startDate,
 
-        endDate: data.endDate,
+        endDate:
+          data.endDate,
 
         allocatedLiters:
           data.allocatedLiters,
 
+        // Always start at zero.
         consumedLiters: 0,
 
         assignedByUserId:
-          data.assignedByUserId ?? null,
+          data.assignedByUserId ??
+          null,
 
         referenceNumber:
-          data.referenceNumber ?? null,
+          data.referenceNumber ??
+          null,
 
         remarks:
-          data.remarks ?? null,
+          data.remarks ??
+          null,
 
         status: "ACTIVE",
       },
@@ -234,7 +251,9 @@ export const quotaRepository = {
   // Two periods overlap when:
   //
   // existing.startDate <= requested.endDate
+  //
   // AND
+  //
   // existing.endDate >= requested.startDate
   //
   // CANCELLED quotas are ignored.
@@ -359,7 +378,8 @@ export const quotaRepository = {
       undefined
     ) {
       updateData.referenceNumber =
-        data.referenceNumber ?? null;
+        data.referenceNumber ??
+        null;
     }
 
     if (
@@ -367,7 +387,8 @@ export const quotaRepository = {
       undefined
     ) {
       updateData.remarks =
-        data.remarks ?? null;
+        data.remarks ??
+        null;
     }
 
     return prisma.fuelQuota.update({
@@ -451,7 +472,7 @@ export const quotaRepository = {
   // Used by the fuel transaction flow.
   //
   // IMPORTANT:
-  // The service/transaction layer must make sure
+  // The transaction/service layer must make sure
   // consumption cannot exceed the quota.
   //
   // ===================================================
@@ -497,10 +518,13 @@ export const quotaRepository = {
 
         status: true,
 
+        // Fuel access master switch.
         allowFuelAccess: true,
 
-        quotaEnabled: true,
+        // Quota requirement.
+        requiresQuota: true,
 
+        // Maximum transaction amount.
         maxTransactionLiters: true,
       },
     });
@@ -545,4 +569,3 @@ export const quotaRepository = {
     });
   },
 };
-

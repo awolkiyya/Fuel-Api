@@ -161,7 +161,7 @@ export const quotaService = {
     // -------------------------------------------------
 
     if (
-      !organization.quotaEnabled
+      !organization.requiresQuota
     ) {
       throw new QuotaServiceError(
         "This organization is not configured for quota-based fueling.",
@@ -647,7 +647,7 @@ export const quotaService = {
 
     if (
       !quota.organization
-        .quotaEnabled
+        .requiresQuota
     ) {
       throw new QuotaServiceError(
         "Quota-based fueling is disabled for this organization.",
@@ -834,7 +834,7 @@ export const quotaService = {
     // -------------------------------------------------
 
     if (
-      !organization.quotaEnabled
+      !organization.requiresQuota
     ) {
       throw new QuotaServiceError(
         "Quota-based fueling is disabled for this organization.",
