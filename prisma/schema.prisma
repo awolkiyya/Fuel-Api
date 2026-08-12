@@ -833,132 +833,6 @@ model FuelRequest {
   updatedAt DateTime @updatedAt
 }
 
-model Transaction {
-
-  id String @id @default(uuid())
-
-  // =========================
-  // TRANSACTION TYPE
-  // =========================
-
-  type FuelTransactionType @default(NORMAL)
-
-
-  // =========================
-  // REQUEST
-  // =========================
-
-  fuelRequestId String? @unique
-
-  fuelRequest FuelRequest? @relation(fields: [fuelRequestId], references: [id])
-
-
-  // =========================
-  // USER / OPERATOR
-  // =========================
-
-  userId String?
-
-  user User? @relation(fields: [userId], references: [id])
-
-
-  // =========================
-  // ORGANIZATION FUELING
-  // =========================
-
-  organizationId String?
-
-  organization Organization? @relation(fields: [organizationId], references: [id])
-
-
-  // =========================
-  // VEHICLE FUELING
-  // =========================
-
-  vehicleId String?
-
-  vehicle Vehicle? @relation(fields: [vehicleId], references: [id])
-
-
-  // =========================
-  // STATION
-  // =========================
-
-  stationId String
-
-  station Station @relation(fields: [stationId], references: [id])
-
-
-   // Attendant who dispensed fuel
-  attendantId String?
-
-  attendant User? @relation("FuelAttendantTransactions",fields:[attendantId],references:[id])
-
-
-  // Pump information
-  nozzleId String?
-
-  nozzle Nozzle? @relation(fields:[nozzleId], references:[id])
-
-
-  // =========================
-  // FUEL
-  // =========================
-
-  fuelTypeId String
-
-  fuelType FuelType @relation(fields: [fuelTypeId], references: [id])
-
-
-  litersGiven Float
-
-  pricePerLiter Float
-
-  totalCost Float
-
-
-  // =========================
-  // PAYMENT
-  // =========================
-
-  paymentStatus PaymentStatus @default(UNPAID)
-
-
-  // =========================
-  // AUDIT
-  // =========================
-
-  createdAt DateTime @default(now())
-
-  updatedAt DateTime @updatedAt
-
-}
-
-// model Transaction {
-//   id String @id @default(uuid())
-
-//   fuelRequestId String @unique
-//   userId        String
-//   vehicleId     String
-//   stationId     String
-
-//   fuelTypeId String
-//   fuelType   FuelType @relation(fields: [fuelTypeId], references: [id])
-
-//   litersGiven   Float
-//   pricePerLiter Float
-//   totalCost     Float
-
-//   paymentStatus String // paid | unpaid
-
-//   createdAt DateTime @default(now())
-//   updatedAt DateTime @default(now()) @updatedAt
-
-//   fuelRequest FuelRequest @relation(fields: [fuelRequestId], references: [id])
-//   user        User        @relation(fields: [userId], references: [id])
-//   vehicle     Vehicle     @relation(fields: [vehicleId], references: [id])
-//   station     Station     @relation(fields: [stationId], references: [id])
-// }
 
 model Camera {
 
@@ -1172,6 +1046,109 @@ model Notification {
   metadata  Json? // requestId, stationId, etc
 
   createdAt DateTime @default(now())
+}
+
+
+
+model Transaction {
+
+  id String @id @default(uuid())
+
+  // =========================
+  // TRANSACTION TYPE
+  // =========================
+
+  type FuelTransactionType @default(NORMAL)
+
+
+  // =========================
+  // REQUEST
+  // =========================
+
+  fuelRequestId String? @unique
+
+  fuelRequest FuelRequest? @relation(fields: [fuelRequestId], references: [id])
+
+
+  // =========================
+  // USER / OPERATOR
+  // =========================
+
+  userId String?
+
+  user User? @relation(fields: [userId], references: [id])
+
+
+  // =========================
+  // ORGANIZATION FUELING
+  // =========================
+
+  organizationId String?
+
+  organization Organization? @relation(fields: [organizationId], references: [id])
+
+
+  // =========================
+  // VEHICLE FUELING
+  // =========================
+
+  vehicleId String?
+
+  vehicle Vehicle? @relation(fields: [vehicleId], references: [id])
+
+
+  // =========================
+  // STATION
+  // =========================
+
+  stationId String
+
+  station Station @relation(fields: [stationId], references: [id])
+
+
+   // Attendant who dispensed fuel
+  attendantId String?
+
+  attendant User? @relation("FuelAttendantTransactions",fields:[attendantId],references:[id])
+
+
+  // Pump information
+  nozzleId String?
+
+  nozzle Nozzle? @relation(fields:[nozzleId], references:[id])
+
+
+  // =========================
+  // FUEL
+  // =========================
+
+  fuelTypeId String
+
+  fuelType FuelType @relation(fields: [fuelTypeId], references: [id])
+
+
+  litersGiven Float
+
+  pricePerLiter Float
+
+  totalCost Float
+
+
+  // =========================
+  // PAYMENT
+  // =========================
+
+  paymentStatus PaymentStatus @default(UNPAID)
+
+
+  // =========================
+  // AUDIT
+  // =========================
+
+  createdAt DateTime @default(now())
+
+  updatedAt DateTime @updatedAt
+
 }
 
 // =====================================================
@@ -1469,4 +1446,31 @@ model FuelQuota {
 
 //   createdAt DateTime @default(now())
 //   updatedAt DateTime @default(now()) @updatedAt
+// }
+
+
+// model Transaction {
+//   id String @id @default(uuid())
+
+//   fuelRequestId String @unique
+//   userId        String
+//   vehicleId     String
+//   stationId     String
+
+//   fuelTypeId String
+//   fuelType   FuelType @relation(fields: [fuelTypeId], references: [id])
+
+//   litersGiven   Float
+//   pricePerLiter Float
+//   totalCost     Float
+
+//   paymentStatus String // paid | unpaid
+
+//   createdAt DateTime @default(now())
+//   updatedAt DateTime @default(now()) @updatedAt
+
+//   fuelRequest FuelRequest @relation(fields: [fuelRequestId], references: [id])
+//   user        User        @relation(fields: [userId], references: [id])
+//   vehicle     Vehicle     @relation(fields: [vehicleId], references: [id])
+//   station     Station     @relation(fields: [stationId], references: [id])
 // }

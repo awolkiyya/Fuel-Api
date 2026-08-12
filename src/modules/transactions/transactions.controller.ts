@@ -1,5 +1,5 @@
 import { Request, Response } from "express";
-import { transactionService } from "./transactions.service";
+import { createOrganizationTransactionService, transactionService } from "./transactions.service";
 
 export const createTransaction = async (req: Request, res: Response) => {
   try {
@@ -39,3 +39,34 @@ export const getTransactions = async (_req: Request, res: Response) => {
     });
   }
 };
+
+
+
+// orginization related
+export async function createOrganizationTransaction(
+  req: Request,
+  res: Response,
+) {
+  try {
+    const result =
+      await createOrganizationTransactionService(req.body);
+
+    return res.status(201).json({
+      success: true,
+      message: "Organization fuel transaction completed successfully.",
+      data: result,
+    });
+  } catch (error: any) {
+    console.error(
+      "Create organization transaction error:",
+      error,
+    );
+
+    return res.status(error.statusCode ?? 500).json({
+      success: false,
+      message:
+        error.message ??
+        "Failed to create organization fuel transaction.",
+    });
+  }
+}

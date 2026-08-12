@@ -172,48 +172,226 @@ export const assignManager = async (
   req: Request<IdParams>,
   res: Response
 ) => {
+  try {
     const stationId = req.params.id;
     const { managerId } = req.body;
 
-    if (!managerId) {
-      const error: any = new Error("managerId is required");
-      error.code = "MANAGER_ID_REQUIRED";
-      error.statusCode = 400;
-      throw error;
+    // =====================================================
+    // VALIDATE STATION ID
+    // =====================================================
+
+    if (!stationId) {
+      return res.status(400).json({
+        success: false,
+        message: "Station ID is required",
+        error: {
+          code: "STATION_ID_REQUIRED",
+        },
+      });
     }
 
-    // 1️⃣ Check station exists
+    // =====================================================
+    // CHECK STATION EXISTS
+    // =====================================================
+
     const station = await stationRepository.findById(stationId);
 
     if (!station) {
-      const error: any = new Error("Station not found");
-      error.code = "STATION_NOT_FOUND";
-      error.statusCode = 404;
-      throw error;
+      return res.status(404).json({
+        success: false,
+        message: "Station not found",
+        error: {
+          code: "STATION_NOT_FOUND",
+        },
+      });
     }
 
-    // 2️⃣ Enforce uniqueness manually (better UX)
-    const alreadyAssigned = await stationRepository.findByManagerId(managerId);
+    // =====================================================
+    // UNASSIGN MANAGER
+    // =====================================================
 
-    if (alreadyAssigned && alreadyAssigned.id !== stationId) {
-      const error: any = new Error(
-        "Manager is already assigned to another station"
-      );
-      error.code = "MANAGER_ALREADY_ASSIGNED";
-      error.statusCode = 409;
-      throw error;
+    if (managerId === null) {
+      const previousManagerId = station.managerId;
+
+      const result = await prisma.$transaction(async (tx) => {
+        // Remove manager from station
+        const updatedStation = await tx.station.update({
+          where: {
+            id: stationId,
+          },
+          data: {
+            managerId: null,
+          },
+        });
+
+        // Clear user's stationId
+        if (previousManagerId) {
+          await tx.user.updateMany({
+            where: {
+              id: previousManagerId,
+              stationId: stationId,
+            },
+            data: {
+              stationId: null,
+            },
+          });
+        }
+
+        return updatedStation;
+      });
+
+      return res.status(200).json({
+        success: true,
+        message: "Manager removed successfully",
+        data: result,
+      });
     }
 
-    // 3️⃣ Update
-    const updated = await stationRepository.update(stationId, {
-      managerId,
+    // =====================================================
+    // VALIDATE MANAGER ID
+    // =====================================================
+
+    if (!managerId || typeof managerId !== "string") {
+      return res.status(400).json({
+        success: false,
+        message: "managerId is required",
+        error: {
+          code: "MANAGER_ID_REQUIRED",
+        },
+      });
+    }
+
+    // =====================================================
+    // CHECK MANAGER EXISTS
+    // =====================================================
+
+    const manager = await prisma.user.findFirst({
+      where: {
+        id: managerId,
+        role: "station_manager",
+      },
     });
 
-    return res.json({
+    if (!manager) {
+      return res.status(404).json({
+        success: false,
+        message: "Station manager not found",
+        error: {
+          code: "MANAGER_NOT_FOUND",
+        },
+      });
+    }
+
+    // =====================================================
+    // CHECK MANAGER ALREADY ASSIGNED
+    // =====================================================
+
+    const alreadyAssigned =
+      await stationRepository.findByManagerId(managerId);
+
+    if (
+      alreadyAssigned &&
+      alreadyAssigned.id !== stationId
+    ) {
+      return res.status(409).json({
+        success: false,
+        message:
+          "Manager is already assigned to another station",
+        error: {
+          code: "MANAGER_ALREADY_ASSIGNED",
+        },
+      });
+    }
+
+    // =====================================================
+    // ASSIGN MANAGER
+    // =====================================================
+
+    const previousManagerId = station.managerId;
+
+    const result = await prisma.$transaction(async (tx) => {
+
+      // ---------------------------------------------------
+      // If station already had another manager,
+      // remove that manager's stationId
+      // ---------------------------------------------------
+
+      if (
+        previousManagerId &&
+        previousManagerId !== managerId
+      ) {
+        await tx.user.updateMany({
+          where: {
+            id: previousManagerId,
+            stationId: stationId,
+          },
+          data: {
+            stationId: null,
+          },
+        });
+      }
+
+      // ---------------------------------------------------
+      // Update station.managerId
+      // ---------------------------------------------------
+
+      const updatedStation = await tx.station.update({
+        where: {
+          id: stationId,
+        },
+        data: {
+          managerId,
+        },
+      });
+
+      // ---------------------------------------------------
+      // IMPORTANT:
+      // Set manager's stationId
+      // ---------------------------------------------------
+
+      await tx.user.update({
+        where: {
+          id: managerId,
+        },
+        data: {
+          stationId,
+        },
+      });
+
+      return updatedStation;
+    });
+
+    // =====================================================
+    // RESPONSE
+    // =====================================================
+
+    return res.status(200).json({
       success: true,
-      message: "Manager assigned successfully",
-      data: updated,
+      message: station.managerId
+        ? "Manager updated successfully"
+        : "Manager assigned successfully",
+      data: result,
     });
+
+  } catch (error: any) {
+    console.error("assignManager error:", error);
+
+    return res.status(
+      error?.statusCode || 500
+    ).json({
+      success: false,
+      message:
+        error?.message ||
+        "Failed to assign manager",
+      error: {
+        code:
+          error?.code ||
+          "INTERNAL_ERROR",
+        details:
+          error?.meta || null,
+      },
+    });
+  }
 };
 
 
